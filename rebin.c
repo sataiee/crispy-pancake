@@ -96,49 +96,51 @@ int nb;
       fread (OldArray, sizeof(real), OldNRAD*OldNSEC, ARR);
       fclose (ARR);
       for (i = 0; i < GLOBALNRAD; i++) {
-	r = New_r[i];
-	iold = 0;
-	found = NO;
-	while ((iold < OldNRAD) && (!found)) {
-	  if (Old_r[iold+1] <= r) iold++;
-	  else found = YES;
-	}
-	if (r <= Old_r[0]) {
-	  iold = 0;
-	  ifrac = 0.0;
-	} else if (r >= Old_r[OldNRAD-1]) {
-	  iold = OldNRAD-2;
-	  ifrac = 1.0;
-	} else
-	  ifrac = (r-Old_r[iold])/(Old_r[iold+1]-Old_r[iold]);
-	printf ("%d\t%d\t%g\n", i, iold, ifrac);
-	for (j = 0; j < NSEC; j++) {
-	  l = j+i*NSEC;
-	  // Check: might not work if pmin != 0...
-	  angle = ((real)j-dangle)/(real)NSEC*(PMAX-PMIN);
-	  jreal = angle/(PMAX-PMIN)*(real)OldNSEC+dangle;
-	  while (jreal < 0.0) jreal += (real)OldNSEC;
-	  jold = (int)jreal;
-	  jold = jold % OldNSEC;
-	  jfrac = jreal-(real)jold;
-	  lo = jold+iold*OldNSEC;
-	  loip = lo+OldNSEC;
-	  lojp = (jold == OldNSEC-1 ? lo-OldNSEC+1 : lo+1);
-	  loipjp = lojp+OldNSEC;
-	  NewArray[l] = OldArray[lo]*(1.0-ifrac)*(1.-jfrac)+\
-	    OldArray[lojp]*(1.0-ifrac)*jfrac+\
-	    OldArray[loip]*ifrac*(1.0-jfrac)+\
-	    OldArray[loipjp]*ifrac*jfrac;
-	}
+        r = New_r[i];
+        iold = 0;
+        found = NO;
+        while ((iold < OldNRAD) && (!found)) {
+          if (Old_r[iold+1] <= r)
+           iold++;
+          else
+           found = YES;
+        }
+        if (r <= Old_r[0]) {
+          iold = 0;
+          ifrac = 0.0;
+        } else if (r >= Old_r[OldNRAD-1]) {
+          iold = OldNRAD-2;
+          ifrac = 1.0;
+        } else {
+          ifrac = (r-Old_r[iold])/(Old_r[iold+1]-Old_r[iold]);
+        }
+        printf ("%d\t%d\t%g\n", i, iold, ifrac);
+        for (j = 0; j < NSEC; j++) {
+          l = j+i*NSEC;
+          // Check: might not work if pmin != 0...
+          angle = ((real)j-dangle)/(real)NSEC*(PMAX-PMIN);
+          jreal = angle/(PMAX-PMIN)*(real)OldNSEC+dangle;
+          while (jreal < 0.0) jreal += (real)OldNSEC;
+          jold = (int)jreal;
+          jold = jold % OldNSEC;
+          jfrac = jreal-(real)jold;
+          lo = jold+iold*OldNSEC;
+          loip = lo+OldNSEC;
+          lojp = (jold == OldNSEC-1 ? lo-OldNSEC+1 : lo+1);
+          loipjp = lojp+OldNSEC;
+          NewArray[l] = OldArray[lo]*(1.0-ifrac)*(1.-jfrac)+\
+          OldArray[lojp]*(1.0-ifrac)*jfrac+\
+          OldArray[loip]*ifrac*(1.0-jfrac)+\
+          OldArray[loipjp]*ifrac*jfrac;
+        }
       }
       ARR = fopen (filename, "w");
       printf("GLOBALNRAD = %d, NSEC = %d\n",GLOBALNRAD,NSEC);
       if (ARR != NULL) {
-	fwrite (NewArray, sizeof(real), GLOBALNRAD*NSEC, ARR);
-	fclose (ARR);
+      fwrite (NewArray, sizeof(real), GLOBALNRAD*NSEC, ARR);
+      fclose (ARR);
       }
-    }
-    else {
+    } else {
       mastererr("Could not rebin %s. File not found\n", filename);
     }
   }

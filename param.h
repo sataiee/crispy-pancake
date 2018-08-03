@@ -139,4 +139,3 @@ extern	char	STARIRRAD[512];
 extern	char	STELLARIRRADIATION[512];
 extern	char	EQUILIBRIUMINIT[512];
 extern	real	ZMETAL;
-extern	char	WRITETORQUEDENSITY[512];

@@ -190,7 +190,7 @@ FILE *fopenp (string, mode)
     printf ("Process %d could not open %s\n", CPU_Rank, string);
     printf ("Trying to create %s\n", OUTPUTDIR);
     MakeDir (OUTPUTDIR);
-    f = fopen (string, "w");	/* "w" instead of mode: at this stage we know the file does not exist */
+    f = fopen (string, "w");  /* "w" instead of mode: at this stage we know the file does not exist */
     if (f == NULL) {
       fprintf (stdout, "I still cannot open %s.\n", string);
       fprintf (stdout, "You should check that the permissions are correctly set.\n");
@@ -204,7 +204,7 @@ FILE *fopenp (string, mode)
 void ComputeCodeUnits ()
 {
   char filename[256];
-  FILE 	*dim;
+  FILE   *dim;
   /* by default, unit_mass is one Sun mass in kg */
   unit_mass   = 1.9891e30*FACTORUNITMASS;     
   /* by default, unit_length is one AU in meters */
@@ -216,8 +216,8 @@ void ComputeCodeUnits ()
   // This is Stefan-Boltzmann constant
   sigma_SB = 5.6704e-8 * pow(unit_mass,-1) * pow(unit_time,3.) * pow(unit_temperature,4.);
   if (AccBoundary){
-	masterprint("Initial accretion rate in code unit:      %lg\n",MDOTINIT);
-	masterprint("Final accretion rate in code unit:      %lg\n",MDOTFINAL);
+    masterprint("Initial accretion rate in code unit:      %lg\n",MDOTINIT);
+    masterprint("Final accretion rate in code unit:      %lg\n",MDOTFINAL);
   }
   rstar = RSTAR*9.822e8 /unit_length;
   tstar = TSTAR / unit_temperature;
@@ -242,16 +242,16 @@ void ComputeCodeUnits ()
 void LinearInterpole(X, r, coeff, N1, N2)
     real *X, *r, coeff[2];
      int N1, N2;
-  {
-     int i,N;
-     real sigXr=0, sigX=0, sigr2=0, sigr=0;
-     for (i=N1; i<N2+1; i++){
-        sigX += X[i];
-        sigXr += X[i]*r[i];
-        sigr2 += r[i]*r[i];
-        sigr += r[i];     
-     }
-     N = N2+1-N1;
-     coeff[0] = (N*sigXr-sigr*sigX) / (N*sigr2-sigr*sigr);
-     coeff[1] = (sigXr*sigr-sigX*sigr2) / (sigr*sigr-N*sigr2);
+{
+  int i,N;
+  real sigXr=0, sigX=0, sigr2=0, sigr=0;
+  for (i=N1; i<N2+1; i++){
+    sigX += X[i];
+    sigXr += X[i]*r[i];
+    sigr2 += r[i]*r[i];
+    sigr += r[i];     
+  }
+  N = N2+1-N1;
+  coeff[0] = (N*sigXr-sigr*sigX) / (N*sigr2-sigr*sigr);
+  coeff[1] = (sigXr*sigr-sigX*sigr2) / (sigr*sigr-N*sigr2);
 }

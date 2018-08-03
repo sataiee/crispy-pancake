@@ -240,14 +240,12 @@ void RestartPlanetarySystem (timestep, sys)
   real *cs, axi[GLOBALNRAD], hplanet;
   char name[256];
   FILE *input;
-  extern boolean FargoPlanete, Write_torquedensity;
-  real *torquedens;
+  extern boolean FargoPlanete;
   n = sys->nb;
   cs = SoundSpeed->Field;
   mpi_make1Dprofile (cs, axi);
   Mswitch = (real *)malloc(n*sizeof(real));
   for (k = 0; k < sys->nb; k++) {
-		torquedens = sys->TorqueDens[k];
   	sprintf (name, "%splanet%d.dat", OUTPUTDIR, k);
 		input = fopen (name, "r");
 		if (input != NULL){
@@ -266,8 +264,6 @@ void RestartPlanetarySystem (timestep, sys)
     } else {
       sys->TorqueFlag[k] = NO;
     }
-    if (Write_torquedensity)
-			ReadTorqueDensity(torquedens, k, timestep);
       /* Below we infer planet's semi-major axis and eccentricity */
       x  = sys->x[k];
       y  = sys->y[k];
@@ -282,58 +278,9 @@ void RestartPlanetarySystem (timestep, sys)
       a = h*h/G/m/(1-e*e);
       sys->a[k]=a;
       sys->e[k]=e;
-      sys->TorqueDens[k] = torquedens;
   }
   free(Mswitch);
 }
-
-void WriteTorqueDensity(sys, noutput)
-     PlanetarySystem *sys;
-     int noutput;
-{
-	int n, i;
-	real *torquedens;
-  FILE    *output;
-  char 		name[256];
-  if (!CPU_Master) return;
-  for (n = 0; n < sys->nb; n++){
-		sprintf (name, "%sTorqueDensity%dOut%d.dat", OUTPUTDIR, n, noutput);
-		output = fopen (name, "w");
-		if (output == NULL) {
-			fprintf (stderr, "Can't write 'TorqueDensity.dat' file. Aborting.\n");
-			prs_exit (1);
-		}
-		torquedens = sys->TorqueDens[n];
-		for (i = 0; i < GLOBALNRAD; i++){
-			fprintf (output, "%.18g\n", torquedens[i]);
-			printf("nout=%d, torqdens[%d]=%e\n", noutput, i, torquedens[i]);
-		}
-		fclose (output);
-	}
-}
-
-void ReadTorqueDensity(torquedens, n, noutput)
-		 real * torquedens;
-		 int n, noutput;
-{
-	int i;
-	real value;
-	FILE    *input;
-	char 		name[256];
-	if (!CPU_Master) return;
-	sprintf (name, "%sTorqueDensity%dOut%d.dat", OUTPUTDIR, n, noutput);
-	input = fopen (name, "r");
-	if (input == NULL) {
-		fprintf (stderr, "Can't read 'TorqueDensity.dat' file. Aborting.\n");
-		prs_exit (1);
-	}
-	for (i = 0; i < GLOBALNRAD; i++){
-		fscanf (input, "%lf", &value);
-		torquedens[i] = value;
-	}
-	fclose(input);
-}
-
 
 void WriteDiskPolar(array, number)
      PolarGrid 	*array;

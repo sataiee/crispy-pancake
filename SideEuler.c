@@ -32,9 +32,9 @@ real GasTotalMass (array)
   if (FakeSequential) {
     if (CPU_Rank < CPU_Number-1)
       MPI_Send (&total, 1, MPI_DOUBLE, CPU_Rank+1, 0, MPI_COMM_WORLD);
-  }
-  else
+  } else {
     MPI_Allreduce (&total, &fulltotal, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  }
   if (FakeSequential) {
     MPI_Bcast (&total, 1, MPI_DOUBLE, CPU_Number-1, MPI_COMM_WORLD);
     fulltotal = total;
@@ -113,9 +113,9 @@ real GasTotalEnergy (Density, Vrad, Vtheta, Energy)
   if (FakeSequential) {
     if (CPU_Rank < CPU_Number-1)
       MPI_Send (&total, 1, MPI_DOUBLE, CPU_Rank+1, 2, MPI_COMM_WORLD);
-  }
-  else
+  } else {
     MPI_Allreduce (&total, &fulltotal, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  }
   if (FakeSequential) {
     MPI_Bcast (&total, 1, MPI_DOUBLE, CPU_Number-1, MPI_COMM_WORLD);
     fulltotal = total;
@@ -273,7 +273,7 @@ Pair AccelFromFormula (force, Rho, x, y, smoothing, mass, sys, index, flag)
         prs_exit(1);
     }        
     if (EnergyEquation)
-        h = GLOBAL_bufarray[ip]/omega/r;
+        h = axics[ip]/omega/r/sqrt(ADIABATICINDEX);
     else
         h = AspectRatio(r)* pow(r,FLARINGINDEX);
     /* torque scaling coeeficients, see section 3 and 5.6 of the paper */
@@ -289,7 +289,7 @@ Pair AccelFromFormula (force, Rho, x, y, smoothing, mass, sys, index, flag)
     }
     LinearInterpole(lnf, lnr , coeff, n1, n2);
     betaf = -coeff[0];              
-    K = sqrt(r) /(2 * PI * FViscosity(r)) ;
+    K = sqrt(r) /(2 * PI * FViscosity(r, axics[i])) ;
     zeta = betaf - (ADIABATICINDEX-1)*alphaf;
 
     if (EnergyEquation){
@@ -422,10 +422,7 @@ int ReturnIndex(r)
 real Ffunc(p)
     real p;
 {
-    real rfour=0, rone=0, rk, foo1, foo2;
-    bessik(p, 4./3, &rfour, &rk, &foo1, &foo2);
-    bessik(p, 1./3, &rone, &rk, &foo1, &foo2);
-    return 8*rfour/(3*p*rone+9./2*p*p*rfour);
+    return 1./(1+p*p/1.3/1.3);
 }
 
 real Gfunc(p)
@@ -472,27 +469,27 @@ void OpenBoundary (Vrad, Vtheta, Rho, Energy)
     for (j = 0; j < ns; j++) {
       l = j+i*ns;
       if ( KNOpen ) {
-       /* Kley and Nelson (2008) prescription */
-       rho[l-ns] = rho[l] ;      // zero gradient for surface density
-       energy[l-ns] = energy[l]; // zero gradient for thermal energy
-       visc = FViscosity(Radii[i]); // azimuthally averaged viscosity
-       vr[l] = -1.5*visc/Radii[i];
-       visc = FViscosity(Radii[i-1]);
-       vr[l-ns] = -1.5*visc/Radii[i-1];
+        /* Kley and Nelson (2008) prescription */
+        rho[l-ns] = rho[l] ;      // zero gradient for surface density
+        energy[l-ns] = energy[l]; // zero gradient for thermal energy
+        visc = FViscosity(Radii[i], axics[i]); // azimuthally averaged viscosity
+        vr[l] = -1.5*visc/Radii[i];
+        visc = FViscosity(Radii[i-1], axics[i-1]);
+        vr[l-ns] = -1.5*visc/Radii[i-1];
       } else {
-       /* Standard outflow prescription */
-       rho[l-ns] = rho[l] ;      // zero gradient for surface density
-       energy[l-ns] = energy[l]; // zero gradient for thermal energy
-       /* NEW (Sept 28 2011): if subkeplerian BC is not applied, then
-       impose zero gradient on vtheta */
-              if (DontApplySubKeplerian)
-                vt[l-ns] = vt[l];
-              if (vr[l+ns] >= 0.0){
-                vr[l] = 0.0;            // vr set to zero when directed outward
-              } else {
-                vr[l-ns] = vr[l];       // vr extrapolated otherwise 
-              }
-     }
+        /* Standard outflow prescription */
+        rho[l-ns] = rho[l] ;      // zero gradient for surface density
+        energy[l-ns] = energy[l]; // zero gradient for thermal energy
+        /* NEW (Sept 28 2011): if subkeplerian BC is not applied, then
+        impose zero gradient on vtheta */
+        if (DontApplySubKeplerian)
+          vt[l-ns] = vt[l];
+        if (vr[l+ns] >= 0.0){
+          vr[l] = 0.0;            // vr set to zero when directed outward
+        } else {
+          vr[l-ns] = vr[l];       // vr extrapolated otherwise 
+        }
+      }
     }
   }
   /* -------------------------------- */
@@ -508,27 +505,26 @@ void OpenBoundary (Vrad, Vtheta, Rho, Energy)
       /* NEW (Sept 28 2011): if subkeplerian BC is not applied, then
        impose zero gradient on vtheta */
      if ( KNOpen ) {
-       /* Kley and Nelson (2008) prescription */
-              rho[l] = rho[l-ns] ;      // zero gradient for surface density
-              energy[l] = energy[l-ns]; // zero gradient for thermal energy
-              visc = FViscosity(Radii[i+IMIN]); // azimuthally averaged viscosity
-              vr[l] = -1.5*visc/Radii[i+IMIN];
-              rho[l+ns] = rho[l] ;      // zero gradient for surface density
-              energy[l+ns] = energy[l]; // zero gradient for thermal energy
-              vr[l+ns] = vr[l];
+      /* Kley and Nelson (2008) prescription */
+      rho[l] = rho[l-ns] ;      // zero gradient for surface density
+      energy[l] = energy[l-ns]; // zero gradient for thermal energy
+      visc = FViscosity(Radii[i+IMIN], axics[i+IMIN]); // azimuthally averaged viscosity
+      vr[l] = -1.5*visc/Radii[i+IMIN];
+      rho[l+ns] = rho[l] ;      // zero gradient for surface density
+      energy[l+ns] = energy[l]; // zero gradient for thermal energy
+      vr[l+ns] = vr[l];
       } else {
-                if (DontApplySubKeplerian) {
-              vt[l] = vt[l-ns];
-                }
-                if (vr[l-ns] < 0.0 )
-              vr[l] = 0.0;            // vr set to zero when directed inward
-                else
-              vr[l] = vr[l-ns];       // vr extrapolated otherwise 
-              vr[l+ns] = vr[l];
-              rho[l+ns] = rho[l] ;      // zero gradient for surface density
-              energy[l+ns] = energy[l]; // zero gradient for thermal energy
+        if (DontApplySubKeplerian)
+          vt[l] = vt[l-ns];
+        if (vr[l-ns] < 0.0 )
+          vr[l] = 0.0;            // vr set to zero when directed inward
+        else
+          vr[l] = vr[l-ns];       // vr extrapolated otherwise 
+        vr[l+ns] = vr[l];
+        rho[l+ns] = rho[l] ;      // zero gradient for surface density
+        energy[l+ns] = energy[l]; // zero gradient for thermal energy
+     }
     }
-   }
   }
 }
 
@@ -552,16 +548,16 @@ void AccretingBoundary (Vrad, Vtheta, Rho, Energy, step)
   energy = Energy->Field;
   temperature = Temperature->Field;
   if (MdotHartmann){
-      timeyear = (PhysicalTime*unit_time)/31556926.0; //time in year
-      mdot = 1e-8 * pow((timeyear + THARTMANN)/1e6, -1.4); //Hartmann1998, modified to give a smaller Mdot because our disc is evolved
-      mdot *= -(1.9891e30/31556926.0 / unit_mass*unit_time); //convert to code unit
+    timeyear = (PhysicalTime*unit_time)/31556926.0; //time in year
+    mdot = 1e-8 * pow((timeyear + THARTMANN)/1e6, -1.4); //Hartmann1998, modified to give a smaller Mdot because our disc is evolved
+    mdot *= -(1.9891e30/31556926.0 / unit_mass*unit_time); //convert to code unit
   } else {
-      if ((PhysicalTime/2./PI) <= MDOTTIME){
-        mdot = MDOTINIT + (MDOTFINAL - MDOTINIT) * (PhysicalTime/2./PI) / MDOTTIME;
-        mdot /= -1;
-      } else {
-        mdot = -MDOTFINAL;
-      }
+    if ((PhysicalTime/2./PI) <= MDOTTIME){
+      mdot = MDOTINIT + (MDOTFINAL - MDOTINIT) * (PhysicalTime/2./PI) / MDOTTIME;
+      mdot /= -1;
+    } else {
+      mdot = -MDOTFINAL;
+    }
   }
   /*----------------------------------------------*/
   /* Inner boundary: three options exist:
@@ -580,7 +576,6 @@ void AccretingBoundary (Vrad, Vtheta, Rho, Energy, step)
             dens[l] *= 0.999;
          dens[l-ns] = dens[l];
          vr[l-ns] = vr[l];
-         energy[l-ns] = energy[l];
       } else if (OpInner){
       /* Standard outflow prescription */
           if (vr[l+ns] > 0)
@@ -595,10 +590,10 @@ void AccretingBoundary (Vrad, Vtheta, Rho, Energy, step)
          if energy equation is used, all terms must be included and 
          the temperature profiles is calculated using Bitsch+2014  */
            if (ViscosityAlpha){
-              visco = ALPHAVISCOSITY*GLOBAL_bufarray[i+IMIN] \
-                  * GLOBAL_bufarray[i+IMIN] * pow(Rmed[i], 1.5);
-              visci = ALPHAVISCOSITY*ALPHAVISCOSITY*GLOBAL_bufarray[i-1+IMIN] \
-                  * GLOBAL_bufarray[i-1+IMIN] * pow(Rmed[i-1], 1.5);
+              visco = ALPHAVISCOSITY*axics[i+IMIN] \
+                  * axics[i+IMIN] / sqrt(ADIABATICINDEX) * pow(Rmed[i], 1.5);
+              visci = ALPHAVISCOSITY*ALPHAVISCOSITY*axics[i-1+IMIN] \
+                  * axics[i-1+IMIN]/ sqrt(ADIABATICINDEX) * pow(Rmed[i-1], 1.5);
            } else {
               visco = VISCOSITY;
               visci = VISCOSITY;
@@ -622,11 +617,11 @@ void AccretingBoundary (Vrad, Vtheta, Rho, Energy, step)
     for (j = 0; j < ns; j++) {
       l = j+i*ns;   
       vr[l] = VradMed[i+IMIN];
-      dens[l] = mdot/2/PI/vr[l];
-      energy[l] = temperature[l]*dens[l]/(ADIABATICINDEX-1);
+      dens[l] = SigmaMed[i];
+      vr[l-ns] = VradMed[i-1+IMIN];
+      dens[l] = SigmaMed[i-1];
     }
   }
-  EvanescentBoundary (Vrad, Vtheta, Rho, Energy, step, mdot);
 }
 
 void NonReflectingBoundary (Vrad, Rho, Energy, Vtheta)
@@ -810,7 +805,7 @@ void EvanescentBoundary (Vrad, Vtheta, Rho, Energy, step, mdot)
 {
   int i, j, l, nr, ns;
   real *vrad, *vtheta, *dens, *energ;
-  real vrad0, vtheta0, viscosity, dens0, energ0;
+  real vrad0, vtheta0, dens0, energ0;
   real damping, Tin, Tout, lambda;
   real temp0, temp1, visc;
   extern boolean DampToIni, DampToAxi, DecInner, OpInner;
@@ -830,18 +825,6 @@ void EvanescentBoundary (Vrad, Vtheta, Rho, Energy, step, mdot)
     if ( (Rmed[i] < WKZRMIN) || (Rmed[i] > WKZRMAX) ) {
       /* Damping operates only inside the wave killing zones */
       if (Rmed[i] < WKZRMIN) {
-        if (i == 0) {
-          for (j=0; j<ns; j++){
-            l = i*ns+j;
-            if (vrad[l+2*ns] > 0)
-              vrad[l+ns] = 0;
-            else
-              vrad[l+ns] = vrad[l+2*ns];
-            dens[l] = dens[l+ns];
-            vrad[l] = vrad[l+ns];
-            energ[l] = energ[l+ns];
-          }
-        }
        damping = (Rmed[i]-WKZRMIN)/(GlobalRmed[0]-WKZRMIN);
        lambda = damping*damping*WKZTIN*step/Tin;
       }
@@ -850,10 +833,6 @@ void EvanescentBoundary (Vrad, Vtheta, Rho, Energy, step, mdot)
        lambda = damping*damping*WKZTOUT*step/Tout;
       }
       // OLD Evanescent BC with damping wrt initial profiles
-      if (ViscosityAlpha || (VISCOSITY != 0.0) )
-       viscosity = FViscosity (Rmed[i]);
-      if (!ViscosityAlpha && (VISCOSITY == 0.0) )
-       viscosity = 0.0;
       if (!SelfGravity) {
        vtheta0 = sqrt ( G*1.0/Rmed[i] *                            \
                       ( 1.0 - (1.0+SIGMASLOPE-2.0*FLARINGINDEX)*       \
@@ -871,27 +850,31 @@ void EvanescentBoundary (Vrad, Vtheta, Rho, Energy, step, mdot)
        fields */
       if (DampToIni) {
         if (Rmed[i] < WKZRMIN){
-            vtheta0 = 0.0;
-            vrad0 = 0.0;
-            dens0 = 0.0;
-            energ0 = 0.0;
-            for (j = 0; j < ns; j++) {
-             l = i*ns + j;
-             vrad0   += vrad[l];
-              vtheta0 += vtheta[l];
-              dens0   += dens[l];
-              energ0  += energ[l];
-           }
-           vrad0   /= (real)ns;
-           vtheta0 /= (real)ns;
-           dens0   /= (real)ns;
-           energ0  /= (real)ns;
-       } else if (Rmed[i] > WKZRMAX) {
+          if (OpInner){
+          /* Standard outflow prescription */
+            for (j = 0; j < ns; j++){
+              l = i*ns+j;
+              if (vrad[l+ns] > 0)
+                vrad[l] = 0;
+              else
+                vrad[l] = vrad[l+ns];
+              dens[l-ns] = dens[l];
+              vrad[l-ns] = vrad[l];
+              energ[l-ns] = energ[l];
+            }
+          } else {
+           vtheta0 = VthetaMed[i];
+           vrad0 = VradMed[i];
+           dens0 = SigmaMed[i];
+           energ0 = EnergyMed[i];
+          }
+        }
+        if (Rmed[i] > WKZRMAX){
            vtheta0 = VthetaMed[i+IMIN];
            vrad0 = VradMed[i+IMIN];
            dens0 = SigmaMed[i];
            energ0 = EnergyMed[i];
-       }
+        }
       }
       if (DampToAxi) {
         if (Rmed[i] < WKZRMIN){
@@ -984,156 +967,7 @@ void AlexBoundary (Vrad, step)
   }
 }
 
-/*
-void EvanescentBoundary (Vrad, Vtheta, Rho, Energy, step, mdot)
-     PolarGrid *Vrad, *Vtheta, *Rho, *Energy;
-     real step, mdot;
-{
-  int i, j, l, nr, ns;
-  real *vrad, *vtheta, *dens, *energ;
-  real vrad0, vtheta0, viscosity, dens0, energ0;
-  real damping, Tin, Tout, lambda;
-  real temp0, temp1, visc;
-  extern boolean DampToIni, DampToAxi, DecInner, OpInner;
-  vrad = Vrad->Field;
-  vtheta = Vtheta->Field;
-  dens = Rho->Field;
-  energ = Energy->Field;
-  nr = Rho->Nrad;
-  ns = Rho->Nsec;
-  /* Orbital period at inner and outer boundary */
-/*  Tin = 2.0*PI*pow(GlobalRmed[0],3./2);
-  Tout = 2.0*PI*pow(GlobalRmed[GLOBALNRAD-1],3./2);
-  /* WKZRMIN AND WKZRMAX are global Radii boundaries of killing wave zones */
 
-/*  lambda = 0.0;
-  for (i = 0; i < nr; i++) {
-    if ( (Rmed[i] < WKZRMIN) || (Rmed[i] > WKZRMAX) ) {
-      /* Damping operates only inside the wave killing zones */
-/*      if (Rmed[i] < WKZRMIN) {
-       damping = (Rmed[i]-WKZRMIN)/(GlobalRmed[0]-WKZRMIN);
-       lambda = damping*damping*WKZTIN*step/Tin;
-      }
-      if (Rmed[i] > WKZRMAX) {
-       damping = (Rmed[i]-WKZRMAX)/(GlobalRmed[GLOBALNRAD-1]-WKZRMAX);
-       lambda = damping*damping*WKZTOUT*step/Tout;
-      }
-      // OLD Evanescent BC with damping wrt initial profiles
-      if (ViscosityAlpha || (VISCOSITY != 0.0) )
-       viscosity = FViscosity (Rmed[i]);
-      if (!ViscosityAlpha && (VISCOSITY == 0.0) )
-       viscosity = 0.0;
-      if (!SelfGravity) {
-       vtheta0 = sqrt ( G*1.0/Rmed[i] *                            \
-                      ( 1.0 - (1.0+SIGMASLOPE-2.0*FLARINGINDEX)*       \
-                        pow(AspectRatio(Rmed[i]),2.0)*pow(Rmed[i],2.0*FLARINGINDEX) ) );
-      }
-      if (SelfGravity) {
-       vtheta0 = sqrt (  G*1.0/Rmed[i] *                            \
-                       ( 1.0 - (1.0+SIGMASLOPE-2.0*FLARINGINDEX)*       \
-                         pow(AspectRatio(Rmed[i]),2.0)*pow(Rmed[i],2.0*FLARINGINDEX) ) - \
-                       Rmed[i]*GLOBAL_AxiSGAccr[i+IMIN] );
-      }
-      // this could be refined if CentrifugalBalance is used...
-      /* NEW July 2012: two options -> damping wrt initial fields
-       (default case) or damping wrt instantaneous axisymmetric
-       fields */
-/*      if (DampToIni) {
-       vtheta0 -= Rmed[i]*OmegaFrame;
-       vrad0 = -3.0*viscosity/Rmed[i]*(-SIGMASLOPE+.5);
-       dens0 = SigmaMed[i];
-       energ0 = EnergyMed[i];
-      }
-      if (DampToAxi) {
-       vrad0   = 0.0;
-       vtheta0 = 0.0;
-       dens0   = 0.0;
-       energ0  = 0.0;
-       for (j = 0; j < ns; j++) {
-         l = i*ns + j;
-         vrad0   += vrad[l];
-         vtheta0 += vtheta[l];
-         dens0   += dens[l];
-         energ0  += energ[l];
-       }
-       vrad0   /= (real)ns;
-       vtheta0 /= (real)ns;
-       dens0   /= (real)ns;
-       energ0  /= (real)ns;
-      }
-      if (AccBoundary) {
-        if (Rmed[i] > WKZRMAX) {
-          vtheta0 = VthetaMed[i+IMIN];
-            vrad0 = VradMed[i+IMIN];
-            dens0 = 0.0;
-            energ0 = 0.0;
-            for (j = 0; j < ns; j++) {
-             l = i*ns + j;
-             dens0   += dens[l];
-             energ0  += energ[l];
-           }
-           dens0   /= (real)ns;
-           energ0  /= (real)ns;
-        }
-        if (Rmed[i] < WKZRMIN){
-          if  ((DecInner) || (OpInner)) {
-            vtheta0 = 0.0;
-           vrad0 = 0.0;
-           dens0 = 0.0;
-           energ0 = 0.0;
-            for (j = 0; j < ns; j++) {
-             l = i*ns + j;
-             vrad0   += vrad[l];
-              vtheta0 += vtheta[l];
-             dens0   += dens[l];
-             energ0  += energ[l];
-           }
-           vrad0   /= (real)ns;
-            vtheta0 /= (real)ns;
-           dens0   /= (real)ns;
-           energ0  /= (real)ns;
-          } else {
-            vtheta0 = VthetaMed[i+IMIN];
-            if (!EnergyEquation) { //Locally isothermal disc (not tested)
-              vrad0 = VradMed[i+IMIN];
-              dens0 = 0.0;
-              energ0 = 0.0;
-              for (j = 0; j < ns; j++) {
-               l = i*ns + j;
-               dens0   += dens[l];
-               energ0  += energ[l];
-             }
-             dens0   /= (real)ns;
-             energ0  /= (real)ns;
-            } else {
-              if (i == 0){
-                temp0 = BitschTemperature(mdot, Rmed[i]);
-                visc = ALPHAVISCOSITY* ADIABATICINDEX * temp0 * pow(Rinf[i], 1.5);
-              } else {
-                temp0 = BitschTemperature(mdot, Rmed[i]);
-                temp1 = BitschTemperature(mdot, Rmed[i-1]);
-                visc = ALPHAVISCOSITY* ADIABATICINDEX * (temp0+temp1)*0.5 * pow(Rinf[i], 1.5);
-              }
-              vrad0 = -3.*visc/2/Rinf[i];
-             dens0 = -mdot/3./PI/(ALPHAVISCOSITY* ADIABATICINDEX * temp0 * pow(Rmed[i], 1.5));
-              energ0 = temp0 * dens0/(ADIABATICINDEX-1);
-            }
-          }
-        }
-      }
-      /* Do not modify lines below */
-/*      for (j = 0; j < ns; j++) {
-       l = i*ns + j;
-       vrad[l]   = (vrad[l]+lambda*vrad0)/(1.0+lambda);
-       vtheta[l] = (vtheta[l]+lambda*vtheta0)/(1.0+lambda);
-       dens[l]   = (dens[l]+lambda*dens0)/(1.0+lambda);
-       if (EnergyEquation)
-         energ[l]  = (energ[l]+lambda*energ0)/(1.0+lambda);
-      }
-    }
-  }
-}
-*/
 void ApplyOuterSourceMass (Rho, Vrad)
      PolarGrid *Rho, *Vrad;
 {
@@ -1193,8 +1027,7 @@ void ApplySubKeplerianBoundary (Vtheta, sys)
       VKepOut = sqrt (  G*totalmass/Rmed[nr-1] *                     \
                      ( 1.0 - (1.0+SIGMASLOPE-2.0*FLARINGINDEX)/totalmass* \
                        pow(AspectRatio(Rmed[nr-1]),2.0)*pow(Rmed[nr-1],2.0*FLARINGINDEX) ) );
-    }
-    else {
+    } else {
       if ( !SGZeroMode )
        mpi_make1Dprofile (SG_Accr, GLOBAL_AxiSGAccr);
       else
@@ -1442,14 +1275,14 @@ real PhotoEvaporation(Vrad, Rho, dt)
   }
 
   if (Rhole > GlobalRmed[1]) {
-     for (i = 0; i <= nr; i++){
-         if (Rsup[i] <= Rhole){
-            for (j = 0; j <= ns; j++){
-                l = i*ns+j;
-                dens[l] = floordens;
-            }
-         }
-     }
+    for (i = 0; i <= nr; i++){
+      if (Rsup[i] <= Rhole){
+        for (j = 0; j <= ns; j++){
+          l = i*ns+j;
+          dens[l] = floordens;
+        }
+      }
+    }
   summ=0;
   for (i = Zero_or_active; i < Max_or_active; i++){
      x = 0.95 *((Rmed[i]-Rhole)*unit_length/1.49598e11)/(unit_mass/1.9891e30);

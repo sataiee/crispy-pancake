@@ -30,35 +30,36 @@ real Sigma(r)
   return sigma;
 }
 
-void FillSigma() {
+void FillSigma()
+{
   int i, ind1;
   real visc, dsmoothin=0.1, mdot0;
   extern boolean MdotHartmann, DecInner, EnergyEquation;
   if (AccBoundary){
     if (ViscosityAlpha){
-     if (EnergyEquation) 
-         visc = ADIABATICINDEX *ALPHAVISCOSITY * pow(ASPECTRATIO,2);
-     else
-         visc = ALPHAVISCOSITY * pow(ASPECTRATIO,2);
-   } else { 
+      if (EnergyEquation) 
+      visc = ADIABATICINDEX *ALPHAVISCOSITY * pow(ASPECTRATIO,2);
+      else
+      visc = ALPHAVISCOSITY * pow(ASPECTRATIO,2);
+    } else { 
       visc = VISCOSITY;
-   }
-   SIGMA0 = MDOTINIT / 3./PI/visc;
-   if (MdotHartmann){
-     mdot0 = 1e-8 * pow(THARTMANN/1e6, -1.4);
-     mdot0 *= (1.9891e30/31556926.0 / unit_mass*unit_time);
-     SIGMA0 = mdot0/ 3./PI/visc;
-   }
+    }
+    SIGMA0 = MDOTINIT / 3./PI/visc;
+    if (MdotHartmann){
+      mdot0 = 1e-8 * pow(THARTMANN/1e6, -1.4);
+      mdot0 *= (1.9891e30/31556926.0 / unit_mass*unit_time);
+      SIGMA0 = mdot0/ 3./PI/visc;
+    }
   }
   for (i = 0; i < NRAD; i++) {
-       SigmaMed[i] = Sigma(Rmed[i]);
-       SigmaInf[i] = Sigma(Rinf[i]);
-           if ((AccBoundary) && (DecInner)) {
-        if (Rmed[i] < (GlobalRmed[0]+dsmoothin))
-            SigmaMed[i] = (SigmaMed[i]-floordens) * exp(-pow(Rmed[i]-(GlobalRmed[0]+dsmoothin),2)/2./pow(dsmoothin,2)) + floordens;
-        if (Rinf[i] < (Radii[0]+dsmoothin))
-            SigmaInf[i] = (SigmaInf[i]-floordens) * exp(-pow(Radii[i]-(Radii[0]+dsmoothin),2)/2./pow(dsmoothin,2)) + floordens;
-        SigmaMed[0] = SigmaMed[1];
+    SigmaMed[i] = Sigma(Rmed[i]);
+    SigmaInf[i] = Sigma(Rinf[i]);
+    if ((AccBoundary) && (DecInner)) {
+      if (Rmed[i] < (GlobalRmed[0]+dsmoothin))
+        SigmaMed[i] = (SigmaMed[i]-floordens) * exp(-pow(Rmed[i]-(GlobalRmed[0]+dsmoothin),2)/2./pow(dsmoothin,2)) + floordens;
+      if (Rinf[i] < (Radii[0]+dsmoothin))
+        SigmaInf[i] = (SigmaInf[i]-floordens) * exp(-pow(Radii[i]-(Radii[0]+dsmoothin),2)/2./pow(dsmoothin,2)) + floordens;
+      SigmaMed[0] = SigmaMed[1];
     }
   }
 }
@@ -84,8 +85,7 @@ void RefillSigma (Surfdens)
   SigmaInf[0] = SigmaMed[0];
   for (i = 1; i < nr; i++) {
     SigmaInf[i] = (SigmaMed[i-1]*(Rmed[i]-Rinf[i])+\
-                 SigmaMed[i]*(Rinf[i]-Rmed[i-1]))/\
-      (Rmed[i]-Rmed[i-1]);
+    SigmaMed[i]*(Rinf[i]-Rmed[i-1]))/(Rmed[i]-Rmed[i-1]);
   }
 }
 
@@ -102,10 +102,10 @@ real Energy(r)
     prs_exit (1);
   } else {
     if ((AccBoundary) && (DecInner)){
-       i = ReturnIndex(r);
-       energy0 = R/MU/(ADIABATICINDEX-1.0)*SigmaMed[i-1-IMIN]*pow(ASPECTRATIO,2.0)*pow(r,-1.0+2.0*FLARINGINDEX);
-    } else{ 
-       energy0 = R/MU/(ADIABATICINDEX-1.0)*SIGMA0*pow(ASPECTRATIO,2.0)*pow(r,-SIGMASLOPE-1.0+2.0*FLARINGINDEX);
+      i = ReturnIndex(r);
+      energy0 = R/MU/(ADIABATICINDEX-1.0)*SigmaMed[i-1-IMIN]*pow(ASPECTRATIO,2.0)*pow(r,-1.0+2.0*FLARINGINDEX);
+    } else { 
+      energy0 = R/MU/(ADIABATICINDEX-1.0)*SIGMA0*pow(ASPECTRATIO,2.0)*pow(r,-SIGMASLOPE-1.0+2.0*FLARINGINDEX);
     }
   }
   if (r < CAVITYRADIUS) cavity = 1.0/CAVITYRATIO; 
