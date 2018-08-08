@@ -1122,7 +1122,7 @@ void ComputeThermalCooling (Rho, Energy)
   for (i = 0; i < nr; i++) {
     for (j = 0; j < ns; j++) {
       l = i*ns + j;
-      tau = opacity[l]*dens[l] / sqrt(2*M_PI); 
+      tau = 0.5* opacity[l]*dens[l] / sqrt(2*M_PI); 
       tau_eff = 0.375*tau + 0.25*sqrt(3.0) + 0.25/(tau+1e-20); // effective optical depth
       temp = (ADIABATICINDEX-1.0)*energ[l]/dens[l];  // temperature
       if (!StellarIrradiation){
@@ -1296,7 +1296,7 @@ void ComputeStarIrrad (Rho)
      for (j = 0; j < ns; j++) {
        l = j+i*ns;
        h = soundspeed[l] * sqrt(Rmed[i]);
-       tau = opacity[l]*dens[l]/sqrt(2*M_PI);
+       tau = 0.5 * opacity[l]*dens[l]/sqrt(2*M_PI);
        taueff = 3./8*tau+sqrt(3.)/4.+1./(4*tau+1e-20);
        /* the qirrad is calculated considering grazing angle as in Pierens2016 */
        stirrad[l] = 2.*(qirrad*(1-epsilon) * h * 2./7.)/taueff; //factor of 2 is because of disc illumination in both sides

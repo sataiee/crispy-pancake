@@ -256,7 +256,7 @@ real CalculateTNew(r, temp, mdot)
   opac = opLBL94 (phys_dens, phys_temp);
   opac *= (0.1 * pow(unit_length,-2) * pow(unit_mass,1)); //make opac dimensionless
   opac *= ZMETAL; //The effect of metalicity as Bitsch+2014
-  tau = opac * sigma / sqrt(2*PI); 
+  tau = 0.5 *opac * sigma / sqrt(2*PI); 
   taueff = 3./8*tau + sqrt(3.)/4.+ 1./(4*tau+1e-20);
   T4 = taueff * mdot * pow(r,-3) * 3./8/PI/sigma_SB; //In code unit, viscous heating
   T4 += Lstar/28./PI/r/r*(H/r)/sigma_SB;  //Stellar irradiation
