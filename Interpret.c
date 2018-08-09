@@ -22,9 +22,9 @@ static clock_t  First, Preceeding, Current, FirstUser, CurrentUser, PreceedingUs
 static long  Ticks;
 boolean         FastTransport = YES, GuidingCenter = NO, BinaryCenter = NO, Indirect_Term = YES, RetrogradeBinary = NO;
 boolean         IsDisk = YES, NonReflecting = NO, Corotating = NO, OuterSourceMass = NO, Evanescent = NO, MixedBC = NO;
-boolean         Write_Density = YES, Write_Velocity = YES, Write_Energy = NO;
+boolean         Write_Density = YES, Write_Velocity = YES, Write_Energy = NO, Write_pdv=NO, Write_ArtVisc=NO;
 boolean         Write_Temperature = NO, Write_DivV = NO, Write_OneD_Fields = NO;
-boolean         Write_TherHeat = NO, Write_TherCool = NO, Write_ViscHeat = NO, Write_RadDiff=NO, Write_StarIrrad = NO, Write_Opacity;
+boolean         Write_TherHeat = NO, Write_TherCool = NO, Write_ViscHeat = NO, Write_RadDiff=NO, Write_StarIrrad = NO, Write_Opacity=NO;
 boolean         Write_Potential = NO, Write_Test = NO, Write_gr = NO, Write_gtheta = NO;
 boolean         SelfGravity = NO, SGZeroMode = NO, ZMPlus = NO, AddNoise = NO;
 boolean         EnergyEquation = NO, ModifiedSoundSpeed = NO, ThermalDiffusion = NO, ThermalCooling = NO, ViscousHeating = YES, TempPresc = NO, BetaCooling = NO, RadiativeDiffusion = NO;
@@ -205,6 +205,8 @@ void ReadVariables(filename)
   if ((*WRITETHERCOOL == 'Y') || (*WRITETHERCOOL == 'y')) Write_TherCool = YES;
   if ((*WRITERADDIFF == 'Y') || (*WRITERADDIFF == 'y')) Write_RadDiff = YES;
   if ((*WRITESTARIRRAD == 'Y') || (*WRITESTARIRRAD == 'y')) Write_StarIrrad = YES;
+  if ((*WRITEPDV == 'Y') || (*WRITEPDV == 'y')) Write_pdv = YES;
+  if ((*WRITEARTVISC == 'Y') || (*WRITEARTVISC == 'y')) Write_ArtVisc = YES;
   if ((*WRITEOPACITY =='Y') || (*WRITEOPACITY == 'y')) Write_Opacity = YES;
   if ((*WRITEPOTENTIAL == 'Y') || (*WRITEPOTENTIAL == 'y')) Write_Potential = YES;
   if ((*WRITETEST == 'Y') || (*WRITETEST == 'y')) Write_Test = YES;

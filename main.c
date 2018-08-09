@@ -322,6 +322,7 @@ main(argc, argv)
         BigTimeStep++;
         WriteBigPlanetSystemFile (sys, TimeStep);
         PhysicalTimeLast=PhysicalTime;
+        SolveOrbits (sys,1);
       } 
       if (NINTERM * (TimeStep = (i / NINTERM)) == i){
         DiskMass = GasTotalMass(gas_density);
@@ -331,6 +332,8 @@ main(argc, argv)
         if (Write_Sigdot)
         WriteSigmaDotFile(TimeStep);
         UpdateLog (force, sys, gas_density, gas_energy, TimeStep, PhysicalTime, dimfxy);  
+        WriteBigPlanetSystemFile (sys, TimeStep);
+        SolveOrbits (sys,1);
       }
       /* Algorithm loop begins here */
       /***********************/
@@ -339,7 +342,6 @@ main(argc, argv)
       InitSpecificTime (Profiling, &t_Hydro, "Eulerian Hydro algorithms");
       AlgoGas (force, gas_density, gas_v_rad, gas_v_theta, gas_energy, gas_label, sys);
       GiveSpecificTime (Profiling, t_Hydro);
-      SolveOrbits (sys,1);
 
       if (MonitorIntegral == YES) {
         CheckMomentumConservation (gas_density, gas_v_theta, sys);

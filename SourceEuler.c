@@ -971,7 +971,7 @@ void ComputeOpacities (Rho, Energy)
    real *opacity;
    real *test;
    real temp, phys_temp;
-   real roversigma, buf;
+   real H;
    real temp_transition_34, temp_transition_45, temp_transition_56, temp_transition_67, temp_transition_78;
    dens = Rho->Field;
    energ = Energy->Field;
@@ -983,12 +983,11 @@ void ComputeOpacities (Rho, Energy)
      for (j = 0; j < ns; j++) {
        l = i*ns + j;
        /* Convert code temperature into Kelvins */
-       temp = (ADIABATICINDEX-1.0)*energ[l]*pow(dens[l],-1.0);  // temperature in code units
+       temp = (ADIABATICINDEX-1.0)*energ[l]/dens[l];  // temperature in code units
        phys_temp = temp * unit_temperature;
        /* Convert 3D volume density into g.cm^-3 */
-       roversigma = Rmed[i] / dens[l];
-       buf = (ADIABATICINDEX-1.0)*energ[l]*pow(roversigma,3.);
-       rho3D = 1./sqrt(buf*2*M_PI);  // 3D density = sigma / sqrt(2*pi) H, 
+       H = sqrt(temp * Rmed[i]*Rmed[i]*Rmed[i]);
+       rho3D = dens[l]/sqrt(2*M_PI)/H;  // 3D density = sigma / sqrt(2*pi) H, 
        phys_dens = rho3D * unit_mass * pow(unit_length, -3.);  // in kg.m^(-3)
        phys_dens *= 1e-3;  // in g.cm^(-3)
        opacity[l] = opLBL94 (phys_dens, phys_temp);
@@ -1126,10 +1125,10 @@ void ComputeThermalCooling (Rho, Energy)
       tau_eff = 0.375*tau + 0.25*sqrt(3.0) + 0.25/(tau+1e-20); // effective optical depth
       temp = (ADIABATICINDEX-1.0)*energ[l]/dens[l];  // temperature
       if (!StellarIrradiation){
-       thercool[l] = 2.0*sigma_SB*pow(temp,4.)*pow(tau_eff,-1.0);
+       thercool[l] = 2.0*sigma_SB*pow(temp,4.)/tau_eff;
       } else {
        temp_irr = (160/unit_temperature) * pow(Rmed[i]*unit_length/1.49598e11,-0.5); // assuming Tirr = 160K x (R/1AU)^-1/2
-       thercool[l] = 2.0*sigma_SB*(pow(temp,4.)-pow(temp_irr,4.))*pow(tau_eff,-1.0);
+       thercool[l] = 2.0*sigma_SB*(pow(temp,4.)-pow(temp_irr,4.))/tau_eff;
       }
     }
   }
@@ -1283,23 +1282,23 @@ void ComputeStarIrrad (Rho)
 {
   int i, j, l, nr, ns;
   real *dens, *stirrad, *opacity, *soundspeed;
-  real h, tau, taueff, qirrad, epsilon=0.5;
+  real h, tau, taueff, epsilon=0.5, Lstar;
   dens = Rho->Field;
   stirrad = StarIrradiation->Field;
   opacity = Opacity->Field;
   soundspeed = SoundSpeed ->Field;
   nr = Rho->Nrad;
   ns = Rho->Nsec; 
+  Lstar = 4*M_PI*sigma_SB*(tstar*tstar*tstar*tstar)*(rstar*rstar); 
   for (i = 0; i < nr; i++) {
   /* a factor 2 is multiplied to count for both sides of the disc*/
-     qirrad = sigma_SB * (tstar*tstar*tstar*tstar) * (rstar*rstar/Rmed[i]/Rmed[i]);
      for (j = 0; j < ns; j++) {
        l = j+i*ns;
-       h = soundspeed[l] * sqrt(Rmed[i]);
+       h = soundspeed[l] * sqrt(Rmed[i]) / sqrt(ADIABATICINDEX);
        tau = 0.5 * opacity[l]*dens[l]/sqrt(2*M_PI);
        taueff = 3./8*tau+sqrt(3.)/4.+1./(4*tau+1e-20);
        /* the qirrad is calculated considering grazing angle as in Pierens2016 */
-       stirrad[l] = 2.*(qirrad*(1-epsilon) * h * 2./7.)/taueff; //factor of 2 is because of disc illumination in both sides
+       stirrad[l] = 2.*(Lstar/4/M_PI/Rmed[i]/Rmed[i]) * (1-epsilon) * h * 2./7. /taueff; //factor of 2 is because of disc illumination in both sides
      }
    }
 }

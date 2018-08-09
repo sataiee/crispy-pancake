@@ -219,7 +219,7 @@ void ComputeCodeUnits ()
     masterprint("Initial accretion rate in code unit:      %lg\n",MDOTINIT);
     masterprint("Final accretion rate in code unit:      %lg\n",MDOTFINAL);
   }
-  rstar = RSTAR*9.822e8 /unit_length;
+  rstar = RSTAR*6.957e8 /unit_length;
   tstar = TSTAR / unit_temperature;
   masterprint("Length unit:      %lg\n",unit_length);
   masterprint("Mass unit:        %lg\n",unit_mass);

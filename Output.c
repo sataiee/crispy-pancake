@@ -13,7 +13,7 @@ static real     Xplanet, Yplanet, VXplanet, VYplanet, MplanetVirtual;
 extern real     LostMass;
 extern boolean  Write_Density, Write_Velocity, Write_Energy, IsDisk;
 extern boolean  Write_Temperature, Write_DivV, Write_TherHeat, Write_TherCool, Write_ViscHeat, ModifiedSoundSpeed, Write_RadDiff, Write_StarIrrad, Write_Opacity;
-extern boolean  Write_Potential, Write_Test, Write_OneD_Fields;
+extern boolean  Write_Potential, Write_Test, Write_OneD_Fields, Write_pdv, Write_ArtVisc;
 extern boolean  Write_gr, Write_gtheta;
 extern boolean  AdvecteLabel;
 
@@ -472,6 +472,8 @@ void SendOutput (index, dens, gasvr, gasvt, gasenerg, label, sys)
     if (Write_TherCool == YES)  WriteDiskPolar (ThermCool, index);
     if (Write_RadDiff == YES)  WriteDiskPolar (RadDiffusion, index);
     if (Write_StarIrrad == YES) WriteDiskPolar (StarIrradiation, index);
+    if (Write_pdv == YES) WriteDiskPolar (pdvEnergy, index);
+    if (Write_ArtVisc == YES) WriteDiskPolar (ArtViscHeat, index);
     if (Write_Opacity == YES)   WriteDiskPolar (Opacity, index);
     if (Write_Potential == YES)  WriteDiskPolar (Potential, index);
     if (Write_Test == YES)  WriteDiskPolar (Test, index);

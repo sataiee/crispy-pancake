@@ -619,7 +619,7 @@ void AccretingBoundary (Vrad, Vtheta, Rho, Energy, step)
       vr[l] = VradMed[i+IMIN];
       dens[l] = SigmaMed[i];
       vr[l-ns] = VradMed[i-1+IMIN];
-      dens[l] = SigmaMed[i-1];
+      dens[l-ns] = SigmaMed[i-1];
     }
   }
 }

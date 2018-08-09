@@ -13,7 +13,7 @@ void merge (nb)
 {
   extern boolean  Write_Density, Write_Velocity, Write_Energy;
   extern boolean  Write_Temperature, Write_DivV, Write_ViscHeat, Write_TherHeat, Write_TherCool, ModifiedSoundSpeed, Write_RadDiff;
-  extern boolean  Write_Potential, Write_Test, Write_gr, Write_gtheta, Write_Opacity, Write_StarIrrad;  
+  extern boolean  Write_Potential, Write_Test, Write_gr, Write_gtheta, Write_Opacity, Write_StarIrrad, Write_ArtVisc, Write_pdv;  
   extern boolean SelfGravity, SGZeroMode;
   extern boolean  AdvecteLabel;
   boolean bool = NO;
@@ -23,7 +23,7 @@ void merge (nb)
   char command[1024];
   if (!CPU_Master) return;
   message ("Merging output files...");
-  for (j = 0; j < 16+(AdvecteLabel == YES); j++) {
+  for (j = 0; j < 18+(AdvecteLabel == YES); j++) {
     switch (j) {
     case 0:
       strcpy (radix, "dens");
@@ -92,7 +92,15 @@ void merge (nb)
       strcpy (radix, "StarIrradiation");
       bool = Write_StarIrrad;
       break;
-    case 16: 
+    case 16:
+      strcpy (radix, "pdvEnergy");
+      bool = Write_pdv;
+      break;
+    case 17:
+      strcpy (radix, "ArtVisc");
+      bool = Write_ArtVisc;
+      break;
+    case 18: 
       strcpy (radix, "label");
       bool = YES;
       break;
