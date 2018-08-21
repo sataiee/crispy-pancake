@@ -589,7 +589,7 @@ void AccretingBoundary (Vrad, Vtheta, Rho, Energy, step)
       /* Accreting value is imposed at the boundaries
          if energy equation is used, all terms must be included and 
          the temperature profiles is calculated using Bitsch+2014  */
-           if (ViscosityAlpha){
+           /*if (ViscosityAlpha){
               visco = ALPHAVISCOSITY*axics[i+IMIN] \
                   * axics[i+IMIN] / sqrt(ADIABATICINDEX) * pow(Rmed[i], 1.5);
               visci = ALPHAVISCOSITY*ALPHAVISCOSITY*axics[i-1+IMIN] \
@@ -603,7 +603,11 @@ void AccretingBoundary (Vrad, Vtheta, Rho, Energy, step)
          energy[l] = temperature[l]*dens[l]/(ADIABATICINDEX-1);
          vr[l-ns] = -3*visci/2/Rinf[i-1];
          dens[l-ns] = mdot/2./PI/Rmed[i-1]/vr[l-ns];
-         energy[l] = temperature[l-ns]*dens[l-ns]/(ADIABATICINDEX-1);
+         energy[l] = temperature[l-ns]*dens[l-ns]/(ADIABATICINDEX-1);*/
+         vr[l] = VradMed[i+IMIN];
+         dens[l] = SigmaMed[i];
+         vr[l-ns] = VradMed[i-1+IMIN];
+         dens[l-ns] = SigmaMed[i-1];
      }
      vt[l-ns] = vt[l]*sqrt(Rmed[i]/Rmed[i-1]);
    }
