@@ -173,3 +173,4 @@ real HighMetal();
 real LowMetal();
 real BitschTemperature();
 void ComputeStarIrrad();
+void Write1DViscosity();

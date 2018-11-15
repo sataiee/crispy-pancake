@@ -351,7 +351,7 @@ void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys)
      GetPsysInfo (sys, MARK);
     if (IsDisk == YES) {
       /* Indirect term of star potential */
-      DiskOnPrimaryAcceleration   = ComputeAccel (force, Rho, 0.0, 0.0, 0.0, 0.0, sys, 2);
+      DiskOnPrimaryAcceleration   = ComputeAccel (force, Rho, 0.0, 0.0, 0.0, 0.0, sys);
       /* Gravitational potential from star and planet(s) */
       FillForcesArrays (sys, Rho, Energy, Vtheta, dt);
       /* Planets' velocities are updated with gravitationnal
@@ -847,7 +847,7 @@ int ConditionCFL (Rho,Vrad, Vtheta, deltaT)
       invdt4 = max2(dvr/dxrad,dvt/dxtheta);
       invdt4*= 4.0*CVNR*CVNR;
       if ( ViscosityAlpha || (VISCOSITY != 0.0) ) 
-       invdt5 = FViscosity(Rmed[i],cs)*4.0/pow(min2(dxrad,dxtheta),2.0);
+       invdt5 = FViscosity(Rmed[i],cs,dens[l])*4.0/pow(min2(dxrad,dxtheta),2.0);
       else 
        invdt5 = 1e-10;
       if (ThermalDiffusion){ 
@@ -931,7 +931,7 @@ void ComputeViscousHeating (Rho)
     for (j = 0; j < ns; j++) {
       l = j+i*ns;
       if (ViscosityAlpha || (VISCOSITY != 0.0) )
-        viscosity = FViscosity (Rmed[i], cs[l]);
+        viscosity = FViscosity (Rmed[i], cs[l], dens[l]);
       if (viscosity != 0.0) {
        vischeat[l] = 0.5/viscosity/dens[l]*( Trr[l]*Trr[l] +              \
                                          2.0*Trp[l]*Trp[l] +       \

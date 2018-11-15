@@ -18,7 +18,7 @@ extern boolean  CorotateWithOuterPlanet, DiscEvaporation, FargoPlanete;
 extern boolean  SelfGravity, SGZeroMode, EnergyEquation, SoftWriting;
 real            ScalingFactor = 1.0;
 real            Runtime = 0.0, PhysicalTimeLast;
-extern boolean  Write_Sigdot, Write_torquedensity;
+extern boolean  Write_Sigdot;
 real            Mdisc0 = 0.0;
 
 
@@ -105,7 +105,6 @@ main(argc, argv)
         /* Option where Fargo is run over a specified running time; applies 
         to Planet/Fargo codes coupling. We then set Write_1D_fields to yes! */
         OneDRun = YES;
-        //  SoftWriting = YES;
       }
       if (strchr (argv[i], 'y')) {
         /* Option where Fargo is run over a specified running time; applies 
@@ -330,7 +329,7 @@ main(argc, argv)
         WritePlanetSystemFile (sys, TimeStep);
         WriteMassTrack (sys, TimeStep, DiskMass, EvapMass, AccMassPls);
         if (Write_Sigdot)
-        WriteSigmaDotFile(TimeStep);
+          WriteSigmaDotFile(TimeStep);
         UpdateLog (force, sys, gas_density, gas_energy, TimeStep, PhysicalTime, dimfxy);  
         WriteBigPlanetSystemFile (sys, TimeStep);
         SolveOrbits (sys,1);
@@ -342,7 +341,6 @@ main(argc, argv)
       InitSpecificTime (Profiling, &t_Hydro, "Eulerian Hydro algorithms");
       AlgoGas (force, gas_density, gas_v_rad, gas_v_theta, gas_energy, gas_label, sys);
       GiveSpecificTime (Profiling, t_Hydro);
-
       if (MonitorIntegral == YES) {
         CheckMomentumConservation (gas_density, gas_v_theta, sys);
         masterprint ("Gas Momentum   : %.18g\n", GasMomentum (gas_density, gas_v_theta));

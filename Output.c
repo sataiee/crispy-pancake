@@ -14,7 +14,7 @@ extern real     LostMass;
 extern boolean  Write_Density, Write_Velocity, Write_Energy, IsDisk;
 extern boolean  Write_Temperature, Write_DivV, Write_TherHeat, Write_TherCool, Write_ViscHeat, ModifiedSoundSpeed, Write_RadDiff, Write_StarIrrad, Write_Opacity;
 extern boolean  Write_Potential, Write_Test, Write_OneD_Fields, Write_pdv, Write_ArtVisc;
-extern boolean  Write_gr, Write_gtheta;
+extern boolean  Write_gr, Write_gtheta, Write_OneD_Viscosity;
 extern boolean  AdvecteLabel;
 
 void EmptyPlanetSystemFile (sys)
@@ -264,6 +264,8 @@ void RestartPlanetarySystem (timestep, sys)
     } else {
       sys->TorqueFlag[k] = NO;
     }
+    if ((*IMPOSEDPLANETTORQ == 'y') || (*IMPOSEDPLANETTORQ == 'Y'))
+         sys->TorqueFlag[k] = YES;
       /* Below we infer planet's semi-major axis and eccentricity */
       x  = sys->x[k];
       y  = sys->y[k];
@@ -431,6 +433,29 @@ void Write1DFields(dens, gasvr, Temperature, number, sys)
 }
 
 
+void Write1DViscosity(number)
+     int 	number;
+{
+  FILE          *dump;
+  char 		name[256];
+  real 		viscosity;
+  int i;
+  // 1D viscosity -> ascii file ~/viscosity1DXX.dat
+  if (CPU_Master) {
+    sprintf (name, "%s%s1D%d.dat", OUTPUTDIR, "Viscosity", number);
+    dump = fopen(name, "w");
+    if (dump == NULL) {
+      fprintf(stderr, "Unable to open '%s'.\n", name);
+      prs_exit(1);
+    }
+    for ( i = 0; i < GLOBALNRAD; i++ ) {
+      viscosity = FViscosity (GlobalRmed[i], axics[i], axidens[i]);
+      fprintf (dump,"%.18e %.18e\n",GlobalRmed[i],viscosity);
+    }
+    fclose (dump);
+  }
+}
+
 void WriteDim () {	  
   char filename[256];
   FILE 	*dim;
@@ -480,6 +505,7 @@ void SendOutput (index, dens, gasvr, gasvt, gasenerg, label, sys)
     if (Write_gr == YES)  WriteDiskPolar (gr, index);
     if (Write_gtheta == YES)  WriteDiskPolar (gtheta, index);
     if (Write_OneD_Fields == YES) Write1DFields (dens, gasvr, Temperature, index, sys);
+    if (Write_OneD_Viscosity == YES) Write1DViscosity(index);
     MPI_Barrier (MPI_COMM_WORLD);
     if (Merge && (CPU_Number > 1)) merge (index);
   }

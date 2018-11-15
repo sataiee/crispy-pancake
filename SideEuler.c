@@ -289,7 +289,7 @@ Pair AccelFromFormula (force, Rho, x, y, smoothing, mass, sys, index, flag)
     }
     LinearInterpole(lnf, lnr , coeff, n1, n2);
     betaf = -coeff[0];              
-    K = sqrt(r) /(2 * PI * FViscosity(r, axics[i])) ;
+    K = sqrt(r) /(2 * PI * FViscosity(r, axics[i], axidens[i])) ;
     zeta = betaf - (ADIABATICINDEX-1)*alphaf;
 
     if (EnergyEquation){
@@ -472,9 +472,9 @@ void OpenBoundary (Vrad, Vtheta, Rho, Energy)
         /* Kley and Nelson (2008) prescription */
         rho[l-ns] = rho[l] ;      // zero gradient for surface density
         energy[l-ns] = energy[l]; // zero gradient for thermal energy
-        visc = FViscosity(Radii[i], axics[i]); // azimuthally averaged viscosity
+        visc = FViscosity(Radii[i], axics[i], axidens[i]); // azimuthally averaged viscosity
         vr[l] = -1.5*visc/Radii[i];
-        visc = FViscosity(Radii[i-1], axics[i-1]);
+        visc = FViscosity(Radii[i-1], axics[i-1], axidens[i-1]);
         vr[l-ns] = -1.5*visc/Radii[i-1];
       } else {
         /* Standard outflow prescription */
@@ -508,7 +508,7 @@ void OpenBoundary (Vrad, Vtheta, Rho, Energy)
       /* Kley and Nelson (2008) prescription */
       rho[l] = rho[l-ns] ;      // zero gradient for surface density
       energy[l] = energy[l-ns]; // zero gradient for thermal energy
-      visc = FViscosity(Radii[i+IMIN], axics[i+IMIN]); // azimuthally averaged viscosity
+      visc = FViscosity(Radii[i+IMIN], axics[i+IMIN], axidens[i+IMIN]); // azimuthally averaged viscosity
       vr[l] = -1.5*visc/Radii[i+IMIN];
       rho[l+ns] = rho[l] ;      // zero gradient for surface density
       energy[l+ns] = energy[l]; // zero gradient for thermal energy
@@ -854,7 +854,7 @@ void EvanescentBoundary (Vrad, Vtheta, Rho, Energy, step, mdot)
        fields */
       if (DampToIni) {
         if (Rmed[i] < WKZRMIN){
-          if (OpInner){
+          if ((OpInner) & (i == 0)){
           /* Standard outflow prescription */
             for (j = 0; j < ns; j++){
               l = i*ns+j;
@@ -862,9 +862,6 @@ void EvanescentBoundary (Vrad, Vtheta, Rho, Energy, step, mdot)
                 vrad[l] = 0;
               else
                 vrad[l] = vrad[l+ns];
-              dens[l-ns] = dens[l];
-              vrad[l-ns] = vrad[l];
-              energ[l-ns] = energ[l];
             }
           } else {
            vtheta0 = VthetaMed[i];

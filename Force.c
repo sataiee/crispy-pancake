@@ -46,13 +46,13 @@ void FreeForce (force)
   free (force->GlobalForce);
 }
 
-void ComputeForce (force, Rho, x, y, mass, dimfxy, sys, index, nplanet)
+void ComputeForce (force, Rho, x, y, mass, dimfxy, sys, index)
      Force *force;
      PolarGrid *Rho;
      real x, y, mass;
      int dimfxy;
      PlanetarySystem *sys;
-     int index, nplanet;
+     int index;
 {
   int i, j, l, ns, nr, k;
   real xc, yc, cellmass, dx, dy, distance, d2, dist2, rh, a;

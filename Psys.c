@@ -215,6 +215,8 @@ int NbRestart;
        sys->FeelOthers[i] = feelothers;
        sys->Binary[i] = binary;
        sys->TorqueFlag[i] = NO;
+       if ((*IMPOSEDPLANETTORQ == 'y') || (*IMPOSEDPLANETTORQ == 'Y'))
+         sys->TorqueFlag[i] = YES;
        i++;
       }
     }

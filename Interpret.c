@@ -17,9 +17,9 @@ extern int      begin_i;
 extern boolean  OpenInner, OneDRun;
 static Param    VariableSet[MAXVARIABLES];
 static int      VariableIndex = 0;
-static int  FirstStep = YES;
+static int      FirstStep = YES;
 static clock_t  First, Preceeding, Current, FirstUser, CurrentUser, PreceedingUser;
-static long  Ticks;
+static long     Ticks;
 boolean         FastTransport = YES, GuidingCenter = NO, BinaryCenter = NO, Indirect_Term = YES, RetrogradeBinary = NO;
 boolean         IsDisk = YES, NonReflecting = NO, Corotating = NO, OuterSourceMass = NO, Evanescent = NO, MixedBC = NO;
 boolean         Write_Density = YES, Write_Velocity = YES, Write_Energy = NO, Write_pdv=NO, Write_ArtVisc=NO;
@@ -41,8 +41,8 @@ boolean         CorotateWithOuterPlanet = NO;
 boolean         DiscEvaporation = NO;
 boolean         CustomizedIT = NO;
 boolean         FargoPlanete = NO, ExponentialDecay = NO;
-boolean          PhotoEvapor = NO, AccBoundary = NO, Write_Sigdot, MdotHartmann = NO, DecInner = NO, OpInner = NO, StellarIrradiation=NO, Alexboundary=NO;
-boolean         InitEquilibrium = NO;
+boolean         PhotoEvapor = NO, AccBoundary = NO, Write_Sigdot, MdotHartmann = NO, DecInner = NO, OpInner = NO, StellarIrradiation=NO, Alexboundary=NO;
+boolean         InitEquilibrium = NO, Write_OneD_Viscosity = NO;
 
 void var(name, ptr, type, necessary, deflt)
      char           *name;
@@ -53,7 +53,7 @@ void var(name, ptr, type, necessary, deflt)
 {
   real            valuer;
   int             valuei;
-  double    temp;
+  double          temp;
   sscanf (deflt, "%lf", &temp);
   valuer = (real) (temp);
   valuei = (int) valuer;
@@ -288,6 +288,7 @@ void ReadVariables(filename)
       BetaCooling = NO;  
       StellarIrradiation = NO; 
       IrradStar = NO;
+      ADIABATICINDEX = 1.0;
   }
   if ((*WRITEENERGY == 'N') || (*WRITEENERGY == 'n')) Write_Energy = NO;
   if ((*MHD == 'L') || (*MHD == 'l')) {
@@ -432,7 +433,7 @@ void ReadVariables(filename)
     strcat (OUTPUTDIR, "/");
   /* Creat the output directory if not exist */
   if (stat(OUTPUTDIR, &stoutput) == -1){
-     sprintf (CommandLine, "mkdir %s", OUTPUTDIR);
+     sprintf (CommandLine, "mkdir -p %s", OUTPUTDIR);
      system (CommandLine);
   }
 
@@ -445,6 +446,14 @@ void ReadVariables(filename)
          prs_exit(1);
       }
   }
+  if ((*IMPOSEDPLANETTORQ == 'y') || (*IMPOSEDPLANETTORQ == 'Y')){
+    if (IMPOSEDGAMMA == '0.0') {
+      masterprint("You decided to impose a given torque on the planet but you forgot to give the IMPOSEDGAMMA.\n");
+      prs_exit(1);
+    }
+  }
+  if ((*WRITEONEDVISC == 'Y') || (*WRITEONEDVISC == 'y'))
+    Write_OneD_Viscosity = YES;
 }
 
 void PrintUsage (execname)

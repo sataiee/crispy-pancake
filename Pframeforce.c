@@ -148,7 +148,7 @@ void AdvanceSystemFromDisk (force, Rho, Energy, sys, dt)
           }
           MPI_Barrier (MPI_COMM_WORLD);
         } else {
-          gamma = ComputeAccel (force, Rho, x, y, m, sys, 2, k);
+          gamma = ComputeAccel (force, Rho, x, y, m, sys);
           sys->vx[k] += dt * gamma.x;
           sys->vy[k] += dt * gamma.y;
         }
@@ -477,7 +477,7 @@ void InitGasVelocities (Vr, Vt, Rho)
     for (j = 0; j < ns; j++) {
       l = j+i*ns;
       if (ViscosityAlpha || (VISCOSITY != 0.0) )
-        viscosity = FViscosity (r, cs[l]);
+        viscosity = FViscosity (r, cs[l], dens[l]);
       /* --------- */
       if (!SelfGravity) {
         omega = sqrt(G*1.0/r/r/r);
@@ -498,6 +498,7 @@ void InitGasVelocities (Vr, Vt, Rho)
         } else {
           if (ViscosityAlpha) 
             vr[l] -= 3.0*viscosity/r*(-SIGMASLOPE+2.0*FLARINGINDEX+1.0);
+            //vr[l] -= 3.0*viscosity/2./r;
           else 
             vr[l] -= 3.0*viscosity/r*(-SIGMASLOPE+.5);
         }

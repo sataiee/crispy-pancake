@@ -19,10 +19,10 @@ calling function.
 
 static PolarGrid *DRR, *DRP, *DPP;
 
-real FViscosity (rad, cscell)
-     real rad, cscell;
+real FViscosity (rad, cscell, sigcell)
+     real rad, cscell, sigcell;
 {
-  real viscosity, rmin, rmax, scale, nudot;
+  real viscosity, rmin, rmax, scale, nudot, alphanew;
   extern boolean ImposedAlpha;
   int i = 0;
   viscosity = VISCOSITY;
@@ -55,6 +55,13 @@ real FViscosity (rad, cscell)
     } else {
       viscosity = RELEASEVISCOSITY;
     }
+  }
+  if ((*ALPHASIGMA == 'Y') || (*ALPHASIGMA == 'y')){
+    if (sigcell >= SIGMAACTIVE)
+      alphanew = ALPHADEAD + ALPHAACTIVE * exp(1-sigcell/SIGMAACTIVE);
+   else
+      alphanew = ALPHAACTIVE;
+   viscosity = alphanew * cscell*cscell / sqrt(ADIABATICINDEX)*pow(rad, 1.5);
   }
    return viscosity;
 }
@@ -150,7 +157,7 @@ void ComputeViscousTerms (RadialVelocity, AzimuthalVelocity, Rho)
       for (j = 0; j < ns; j++) {
         l = j+i*ns;
         if (ViscosityAlpha || (VISCOSITY != 0.0) )
-          viscosity = FViscosity (Rmed[i], cs[l]);
+          viscosity = FViscosity (Rmed[i], cs[l], rho[l]);
         Trr[l] = 2.0*rho[l]*viscosity*(Drr[l]-onethird*divergence[l]);
         Tpp[l] = 2.0*rho[l]*viscosity*(Dpp[l]-onethird*divergence[l]);
       }
@@ -166,7 +173,7 @@ void ComputeViscousTerms (RadialVelocity, AzimuthalVelocity, Rho)
         if (j == 0) ljm = i*ns+ns-1;
         ljmim=ljm-ns;
         if (ViscosityAlpha || (VISCOSITY != 0.0) )
-          viscosity = FViscosity (Rmed[i], cs[l]);
+          viscosity = FViscosity (Rmed[i], cs[l], rho[l]);
         Trp[l] = 2.0*0.25*(rho[l]+rho[lim]+rho[ljm]+rho[ljmim])*viscosity*Drp[l];
       }
     }

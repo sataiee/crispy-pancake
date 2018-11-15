@@ -215,6 +215,8 @@ void ComputeCodeUnits ()
   unit_temperature = mmw * 8.0841643e-15 * unit_mass / unit_length;
   // This is Stefan-Boltzmann constant
   sigma_SB = 5.6704e-8 * pow(unit_mass,-1) * pow(unit_time,3.) * pow(unit_temperature,4.);
+  // Threshold sigma for active to dead zone transition
+  SIGMAACTIVE /= (unit_mass/unit_length/unit_length/10); 
   if (AccBoundary){
     masterprint("Initial accretion rate in code unit:      %lg\n",MDOTINIT);
     masterprint("Final accretion rate in code unit:      %lg\n",MDOTFINAL);

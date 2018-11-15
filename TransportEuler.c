@@ -90,7 +90,7 @@ void ComputeLRMomenta (Rho, Vrad, Vtheta)
       lip = l+ns;
       ljp = l+1;
       if (j == ns-1)
-  ljp = i*ns;
+      ljp = i*ns;
       rp[l] = rho[l]*vr[lip];
       rm[l] = rho[l]*vr[l];
       tp[l] = rho[l]*(vt[ljp]+Rmed[i]*OmegaFrame)*Rmed[i]; /* it is the angular momentum */
@@ -460,7 +460,7 @@ void ComputeExtQty (Rho, Label, ExtLabel)
       l = j+i*ns;
       extlab[l] = rho[l]*lab[l]; 
       /* compressive flow  if line commentarized
-   extlab[l] = lab[l]; */
+       extlab[l] = lab[l]; */
     }
   }
 }
@@ -481,7 +481,7 @@ void ComputeSpeQty (Rho, Label, ExtLabel)
       l = j+i*ns;
       lab[l] = extlab[l]/rho[l]; 
       /* compressive flow if line commentarized
-   lab[l] = extlab[l]; */
+       lab[l] = extlab[l]; */
     }
   }
 }
