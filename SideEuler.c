@@ -210,15 +210,15 @@ void InitComputeAccel ()
   }
 }
   
-Pair ComputeAccel (force, Rho, x, y, rsmoothing, mass, psys, index)
+Pair ComputeAccel (force, Rho, x, y, mass, psys, index)
      Force *force;
      PolarGrid *Rho;
-     real x, y, rsmoothing, mass;
+     real x, y, mass;
      PlanetarySystem *psys;
      int index;
 {
   Pair acceleration;
-  ComputeForce (force, Rho, x, y, rsmoothing, mass, dimfxy, psys, index);
+  ComputeForce (force, Rho, x, y, mass, dimfxy, psys, index);
   if (ExcludeHill) {
     acceleration.x = force->fx_ex_inner+force->fx_ex_outer;
     acceleration.y = force->fy_ex_inner+force->fy_ex_outer;

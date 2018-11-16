@@ -351,7 +351,7 @@ void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys)
      GetPsysInfo (sys, MARK);
     if (IsDisk == YES) {
       /* Indirect term of star potential */
-      DiskOnPrimaryAcceleration   = ComputeAccel (force, Rho, 0.0, 0.0, 0.0, 0.0, sys);
+      DiskOnPrimaryAcceleration   = ComputeAccel (force, Rho, 0.0, 0.0, 0.0, sys, 2);
       /* Gravitational potential from star and planet(s) */
       FillForcesArrays (sys, Rho, Energy, Vtheta, dt);
       /* Planets' velocities are updated with gravitationnal

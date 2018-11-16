@@ -285,7 +285,7 @@ void UpdateLog (fc, psys, Rho, Energy, outputnb, time, dimfxy)
       if (psys->TorqueFlag[i]){
         accelfoo =  AccelFromFormula (fc, Rho, x, y, smoothing, m, psys, i, 0);
       } else {
-        ComputeForce (fc, Rho, x, y, m, dimfxy, psys, 2, i);
+        ComputeForce (fc, Rho, x, y, m, dimfxy, psys, 2);
         globalforce = fc->GlobalForce;
       }
     }

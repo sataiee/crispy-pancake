@@ -148,7 +148,7 @@ void AdvanceSystemFromDisk (force, Rho, Energy, sys, dt)
           }
           MPI_Barrier (MPI_COMM_WORLD);
         } else {
-          gamma = ComputeAccel (force, Rho, x, y, m, sys);
+          gamma = ComputeAccel (force, Rho, x, y, m, sys, 2);
           sys->vx[k] += dt * gamma.x;
           sys->vy[k] += dt * gamma.y;
         }

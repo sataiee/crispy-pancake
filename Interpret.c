@@ -288,7 +288,6 @@ void ReadVariables(filename)
       BetaCooling = NO;  
       StellarIrradiation = NO; 
       IrradStar = NO;
-      ADIABATICINDEX = 1.0;
   }
   if ((*WRITEENERGY == 'N') || (*WRITEENERGY == 'n')) Write_Energy = NO;
   if ((*MHD == 'L') || (*MHD == 'l')) {
