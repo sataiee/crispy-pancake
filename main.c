@@ -329,7 +329,7 @@ main(argc, argv)
         WritePlanetSystemFile (sys, TimeStep);
         WriteMassTrack (sys, TimeStep, DiskMass, EvapMass, AccMassPls);
         if (Write_Sigdot)
-          WriteSigmaDotFile(TimeStep);
+        WriteSigmaDotFile(TimeStep);
         UpdateLog (force, sys, gas_density, gas_energy, TimeStep, PhysicalTime, dimfxy);  
         WriteBigPlanetSystemFile (sys, TimeStep);
         SolveOrbits (sys,1);

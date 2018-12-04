@@ -823,62 +823,106 @@ void EvanescentBoundary (Vrad, Vtheta, Rho, Energy, step, mdot)
   Tin = 2.0*PI*pow(GlobalRmed[0],3./2);
   Tout = 2.0*PI*pow(GlobalRmed[GLOBALNRAD-1],3./2);
   /* WKZRMIN AND WKZRMAX are global Radii boundaries of killing wave zones */
-
   lambda = 0.0;
-  for (i = 0; i < nr; i++) {
-    if ( (Rmed[i] < WKZRMIN) || (Rmed[i] > WKZRMAX) ) {
-      /* Damping operates only inside the wave killing zones */
-      if (Rmed[i] < WKZRMIN) {
-       damping = (Rmed[i]-WKZRMIN)/(GlobalRmed[0]-WKZRMIN);
-       lambda = damping*damping*WKZTIN*step/Tin;
-      }
-      if (Rmed[i] > WKZRMAX) {
-       damping = (Rmed[i]-WKZRMAX)/(GlobalRmed[GLOBALNRAD-1]-WKZRMAX);
-       lambda = damping*damping*WKZTOUT*step/Tout;
-      }
-      // OLD Evanescent BC with damping wrt initial profiles
-      if (!SelfGravity) {
-       vtheta0 = sqrt ( G*1.0/Rmed[i] *                            \
-                      ( 1.0 - (1.0+SIGMASLOPE-2.0*FLARINGINDEX)*       \
-                        pow(AspectRatio(Rmed[i]),2.0)*pow(Rmed[i],2.0*FLARINGINDEX) ) );
-      }
-      if (SelfGravity) {
-       vtheta0 = sqrt (  G*1.0/Rmed[i] *                            \
-                       ( 1.0 - (1.0+SIGMASLOPE-2.0*FLARINGINDEX)*       \
-                         pow(AspectRatio(Rmed[i]),2.0)*pow(Rmed[i],2.0*FLARINGINDEX) ) - \
-                       Rmed[i]*GLOBAL_AxiSGAccr[i+IMIN] );
-      }
-      // this could be refined if CentrifugalBalance is used...
-      /* NEW July 2012: two options -> damping wrt initial fields
-       (default case) or damping wrt instantaneous axisymmetric
-       fields */
-      if (DampToIni) {
-        if (Rmed[i] < WKZRMIN){
-          if ((OpInner) & (i == 0)){
-          /* Standard outflow prescription */
-            for (j = 0; j < ns; j++){
-              l = i*ns+j;
-              if (vrad[l+ns] > 0)
-                vrad[l] = 0;
-              else
-                vrad[l] = vrad[l+ns];
-            }
-          } else {
-           vtheta0 = VthetaMed[i];
-           vrad0 = VradMed[i];
-           dens0 = SigmaMed[i];
-           energ0 = EnergyMed[i];
+  if (OpInner) {
+    for (i = 0; i < nr; i++) {
+      if (i==0 && CPU_Master) {
+        /* Standard outflow prescription */
+        for (j = 0; j < ns; j++){
+          l = i*ns+j;
+          if (vrad[l+ns] > 0)
+            vrad[l] = 0;
+          else
+            vrad[l] = vrad[l+ns];
           }
+      } else if(Rmed[i] > WKZRMAX) {
+         damping = (Rmed[i]-WKZRMAX)/(GlobalRmed[GLOBALNRAD-1]-WKZRMAX);
+         lambda = damping*damping*WKZTOUT*step/Tout;
+        // OLD Evanescent BC with damping wrt initial profiles
+        if (!SelfGravity) {
+         vtheta0 = sqrt ( G*1.0/Rmed[i] *                            \
+                        ( 1.0 - (1.0+SIGMASLOPE-2.0*FLARINGINDEX)*       \
+                          pow(AspectRatio(Rmed[i]),2.0)*pow(Rmed[i],2.0*FLARINGINDEX) ) );
         }
-        if (Rmed[i] > WKZRMAX){
+        if (SelfGravity) {
+         vtheta0 = sqrt (  G*1.0/Rmed[i] *                            \
+                         ( 1.0 - (1.0+SIGMASLOPE-2.0*FLARINGINDEX)*       \
+                           pow(AspectRatio(Rmed[i]),2.0)*pow(Rmed[i],2.0*FLARINGINDEX) ) - \
+                         Rmed[i]*GLOBAL_AxiSGAccr[i+IMIN] );
+        }
+        // this could be refined if CentrifugalBalance is used...
+        /* NEW July 2012: two options -> damping wrt initial fields
+         (default case) or damping wrt instantaneous axisymmetric
+         fields */
+        if (DampToIni) {
+             vtheta0 = VthetaMed[i+IMIN];
+             vrad0 = VradMed[i+IMIN];
+             dens0 = SigmaMed[i];
+             energ0 = EnergyMed[i];
+        }
+       if (DampToAxi) {  
+         vtheta0 = 0.0;
+         vrad0 = 0.0;
+         dens0 = 0.0;
+         energ0 = 0.0;
+         for (j = 0; j < ns; j++) {
+           l = i*ns + j;
+           vrad0   += vrad[l];
+           vtheta0 += vtheta[l];
+           dens0   += dens[l];
+           energ0  += energ[l];
+         }
+         vrad0   /= (real)ns;
+         vtheta0 /= (real)ns;
+         dens0   /= (real)ns;
+         energ0  /= (real)ns;
+       }
+       /* Do not modify lines below */
+       for (j = 0; j < ns; j++) {
+         l = i*ns + j;
+         vrad[l]   = (vrad[l]+lambda*vrad0)/(1.0+lambda);
+         vtheta[l] = (vtheta[l]+lambda*vtheta0)/(1.0+lambda);
+         dens[l]   = (dens[l]+lambda*dens0)/(1.0+lambda);
+         if (EnergyEquation)
+           energ[l]  = (energ[l]+lambda*energ0)/(1.0+lambda);
+       }
+      }
+    }
+  } else {
+    for (i = 0; i < nr; i++) {
+      if ( (Rmed[i] < WKZRMIN) || (Rmed[i] > WKZRMAX) ) {
+        /* Damping operates only inside the wave killing zones */
+        if (Rmed[i] < WKZRMIN) {
+         damping = (Rmed[i]-WKZRMIN)/(GlobalRmed[0]-WKZRMIN);
+         lambda = damping*damping*WKZTIN*step/Tin;
+        }
+        if (Rmed[i] > WKZRMAX) {
+         damping = (Rmed[i]-WKZRMAX)/(GlobalRmed[GLOBALNRAD-1]-WKZRMAX);
+         lambda = damping*damping*WKZTOUT*step/Tout;
+        }
+        // OLD Evanescent BC with damping wrt initial profiles
+        if (!SelfGravity) {
+         vtheta0 = sqrt ( G*1.0/Rmed[i] *                            \
+                        ( 1.0 - (1.0+SIGMASLOPE-2.0*FLARINGINDEX)*       \
+                          pow(AspectRatio(Rmed[i]),2.0)*pow(Rmed[i],2.0*FLARINGINDEX) ) );
+        }
+        if (SelfGravity) {
+         vtheta0 = sqrt (  G*1.0/Rmed[i] *                            \
+                         ( 1.0 - (1.0+SIGMASLOPE-2.0*FLARINGINDEX)*       \
+                           pow(AspectRatio(Rmed[i]),2.0)*pow(Rmed[i],2.0*FLARINGINDEX) ) - \
+                         Rmed[i]*GLOBAL_AxiSGAccr[i+IMIN] );
+        }
+        // this could be refined if CentrifugalBalance is used...
+        /* NEW July 2012: two options -> damping wrt initial fields
+         (default case) or damping wrt instantaneous axisymmetric
+         fields */
+         if (DampToIni) {
            vtheta0 = VthetaMed[i+IMIN];
            vrad0 = VradMed[i+IMIN];
            dens0 = SigmaMed[i];
            energ0 = EnergyMed[i];
-        }
-      }
-      if (DampToAxi) {
-        if (Rmed[i] < WKZRMIN){
+         }
+         if (DampToAxi) {  
             vtheta0 = 0.0;
             vrad0 = 0.0;
             dens0 = 0.0;
@@ -889,37 +933,21 @@ void EvanescentBoundary (Vrad, Vtheta, Rho, Energy, step, mdot)
              vtheta0 += vtheta[l];
              dens0   += dens[l];
              energ0  += energ[l];
-           }
-           vrad0   /= (real)ns;
-           vtheta0 /= (real)ns;
-           dens0   /= (real)ns;
-           energ0  /= (real)ns;
-       } else if (Rmed[i] > WKZRMAX) {
-          vrad0   = 0.0;
-         vtheta0 = 0.0;
-         dens0   = 0.0;
-         energ0  = 0.0;
+            }
+            vrad0   /= (real)ns;
+            vtheta0 /= (real)ns;
+            dens0   /= (real)ns;
+            energ0  /= (real)ns;
+         }
+         /* Do not modify lines below */
          for (j = 0; j < ns; j++) {
-          l = i*ns + j;
-         vrad0   += vrad[l];
-         vtheta0 += vtheta[l];
-         dens0   += dens[l];
-         energ0  += energ[l];
-       }
-       vrad0   /= (real)ns;
-       vtheta0 /= (real)ns;
-       dens0   /= (real)ns;
-       energ0  /= (real)ns;
-      }
-      }
-      /* Do not modify lines below */
-      for (j = 0; j < ns; j++) {
-       l = i*ns + j;
-       vrad[l]   = (vrad[l]+lambda*vrad0)/(1.0+lambda);
-       vtheta[l] = (vtheta[l]+lambda*vtheta0)/(1.0+lambda);
-       dens[l]   = (dens[l]+lambda*dens0)/(1.0+lambda);
-       if (EnergyEquation)
-         energ[l]  = (energ[l]+lambda*energ0)/(1.0+lambda);
+           l = i*ns + j;
+           vrad[l]   = (vrad[l]+lambda*vrad0)/(1.0+lambda);
+           vtheta[l] = (vtheta[l]+lambda*vtheta0)/(1.0+lambda);
+           dens[l]   = (dens[l]+lambda*dens0)/(1.0+lambda);
+           if (EnergyEquation)
+             energ[l]  = (energ[l]+lambda*energ0)/(1.0+lambda);
+        }
       }
     }
   }

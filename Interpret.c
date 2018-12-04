@@ -288,6 +288,7 @@ void ReadVariables(filename)
       BetaCooling = NO;  
       StellarIrradiation = NO; 
       IrradStar = NO;
+      ADIABATICINDEX = 1.0;
   }
   if ((*WRITEENERGY == 'N') || (*WRITEENERGY == 'n')) Write_Energy = NO;
   if ((*MHD == 'L') || (*MHD == 'l')) {
@@ -446,7 +447,7 @@ void ReadVariables(filename)
       }
   }
   if ((*IMPOSEDPLANETTORQ == 'y') || (*IMPOSEDPLANETTORQ == 'Y')){
-    if (IMPOSEDGAMMA == '0.0') {
+    if (IMPOSEDGAMMA == 0.0) {
       masterprint("You decided to impose a given torque on the planet but you forgot to give the IMPOSEDGAMMA.\n");
       prs_exit(1);
     }
