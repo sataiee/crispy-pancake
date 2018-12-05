@@ -126,7 +126,8 @@ void AdvanceSystemFromDisk (force, Rho, Energy, sys, dt)
 {
   int NbPlanets, k, ip;
   Pair gamma, accel;
-  real x, y, r, m, smoothing;
+  real x, y, r, m, smoothing, omega, taumig, vdotr, vx, vy;
+  extern boolean ForcedCircularTemp;
   NbPlanets = sys->nb;
   for (k = 0; k < NbPlanets; k++) {
     if (sys->FeelDisk[k] == YES) {
@@ -139,22 +140,52 @@ void AdvanceSystemFromDisk (force, Rho, Energy, sys, dt)
         smoothing = r*pow(m/3.,1./3.)*ROCHESMOOTHING;
       else
         smoothing = compute_smoothing (r);
-      if (sys->mass[k] > 0.0) {
-        if (sys->TorqueFlag[k] == YES){
-          if (CPU_Master){
-            accel = AccelFromFormula (force, Rho, x, y, smoothing, m, sys, k,1);             
-            sys->vx[k] += dt * accel.x;
-            sys->vy[k] += dt * accel.y;
+      if ((*IMPOSEDGAMMA == 'y') || (*IMPOSEDGAMMA == 'Y')) {
+        vx = sys->vx[k];
+        vy = sys->vy[k];
+        omega = sqrt((1.+m)/r/r/r);
+        taumig = - r*r * omega / GAMMAVALUE;  //Note that I remove the eccentriciy damping part
+        vdotr = vx*x + vy*y;
+        gamma.x =  -1. * vx/taumig;
+        gamma.y =  -1. * vy/taumig;
+        sys->vx[k] += dt * gamma.x;
+        sys->vy[k] += dt * gamma.y;
+      } else {
+          if (ForcedCircularTemp){
+            if (PhysicalTime >= RELEASEDATE) {
+                if (sys->mass[k] > 0.0){
+                    if (sys->TorqueFlag[k] == YES){
+                        accel = AccelFromFormula (force, x, y, smoothing, m, sys, k,1);             
+                        sys->vx[k] += dt * accel.x;
+                        sys->vy[k] += dt * accel.y;
+                    } else {
+                        gamma = ComputeAccel (force, Rho, x, y, smoothing, m, sys, k);
+                        sys->vx[k] += dt * gamma.x;
+                        sys->vy[k] += dt * gamma.y;
+                    }
+                    sys->vx[k] += dt * IndirectTerm.x;
+                    sys->vy[k] += dt * IndirectTerm.y;
+                }
+            }
+          } else {
+            if (sys->mass[k] > 0.0) {
+                if (sys->TorqueFlag[k] == YES){
+                    if (CPU_Master){
+                        accel = AccelFromFormula (force, Rho, x, y, smoothing, m, sys, k,1);             
+                        sys->vx[k] += dt * accel.x;
+                        sys->vy[k] += dt * accel.y;
+                    }
+                    MPI_Barrier (MPI_COMM_WORLD);
+                } else {
+                    gamma = ComputeAccel (force, Rho, x, y, m, sys, 2);
+                    sys->vx[k] += dt * gamma.x;
+                    sys->vy[k] += dt * gamma.y;
+                }
+            }
+            sys->vx[k] += dt * IndirectTerm.x;
+            sys->vy[k] += dt * IndirectTerm.y;
           }
-          MPI_Barrier (MPI_COMM_WORLD);
-        } else {
-          gamma = ComputeAccel (force, Rho, x, y, m, sys, 2);
-          sys->vx[k] += dt * gamma.x;
-          sys->vy[k] += dt * gamma.y;
-        }
       }
-      sys->vx[k] += dt * IndirectTerm.x;
-      sys->vy[k] += dt * IndirectTerm.y;
     }
   }
 }
@@ -163,7 +194,7 @@ void AdvanceSystemRK5 (sys, dt)
      PlanetarySystem *sys;
      real dt;
 {
-  extern boolean ForcedCircular, ForcedInnerCircular;
+  extern boolean ForcedCircular, ForcedInnerCircular, ForcedCircularTemp;
   int i, n, myimin;
   boolean *feelothers;
   real dtheta, omega, rdot, x, y, r, v, new_r, vx, vy, theta, denom;
@@ -179,83 +210,109 @@ void AdvanceSystemRK5 (sys, dt)
     feelothers = sys->FeelOthers;
     RungeKunta (q0, dt, PlanetMasses, q1, n, feelothers);
   }
-  /* Default case (see below) */
-  if (!ForcedInnerCircular) {
-    for (i = 1-(PhysicalTime >= RELEASEDATE); i < sys->nb; i++) {
-      /* Default case: planets position and velocity updated after 
-      Runge Kutta step */
-      if (!ForcedCircular) {
-        sys->x[i] = q1[i];
-        sys->y[i] = q1[i+n];
-        sys->vx[i] = q1[i+2*n];
-        sys->vy[i] = q1[i+3*n];
-      } else {
-        /* Case where planets are held on a fixed circular orbit with 
-        initial angular frequency omega */
-        x = sys->x[i];
-        y = sys->y[i];
-        theta = atan2(y,x);
-        vx = sys->vx[i];
-        vy = sys->vy[i];
-        r = sqrt(x*x + y*y);
-        v = sqrt(vx*vx + vy*vy);
-        omega = (-y*vx + x*vy)/r/r;
-        dtheta = omega*dt;
-        sys->x[i]  = r*cos(theta+dtheta);
-        sys->y[i]  = r*sin(theta+dtheta);
-        sys->vx[i] = -v*sin(theta+dtheta);
-        sys->vy[i] =  v*cos(theta+dtheta);
-      }
-    }
+  /* Adrien project: planets are hold in circular orbits until RELEASEDATE */
+  if (ForcedCircularTemp){
+    for (i = 0; i < sys->nb; i++){
+	    if (PhysicalTime < RELEASEDATE) {
+				x = sys->x[i];
+				y = sys->y[i];
+				theta = atan2(y,x);
+				vx = sys->vx[i];
+				vy = sys->vy[i];
+				r = sqrt(x*x + y*y);
+				v = sqrt(vx*vx + vy*vy);
+				omega = (-y*vx + x*vy)/r/r;
+				dtheta = omega*dt;
+				sys->x[i]  = r*cos(theta+dtheta);
+				sys->y[i]  = r*sin(theta+dtheta);
+				sys->vx[i] = -v*sin(theta+dtheta);
+				sys->vy[i] =  v*cos(theta+dtheta);
+ 	   } else { 
+				sys->x[i] = q1[i];
+				sys->y[i] = q1[i+n];
+				sys->vx[i] = q1[i+2*n];
+				sys->vy[i] = q1[i+3*n];
+ 	   }
+ 	 }
   } else {
-    /* New (july 2012): particular case where inner planet held on a fixed 
-    circular orbit */
-    for (i = 0; i < n; i++) {
-      if (i == 0) {  // inner planet (i=0) fixed -> copy-paste of above
-        x = sys->x[i];
-        y = sys->y[i];
-        theta = atan2(y,x);
-        vx = sys->vx[i];
-        vy = sys->vy[i];
-        r = sqrt(x*x + y*y);
-        v = sqrt(vx*vx + vy*vy);
-        omega = (-y*vx + x*vy)/r/r;
-        dtheta = omega*dt;
-        sys->x[i]  = r*cos(theta+dtheta);
-        sys->y[i]  = r*sin(theta+dtheta);
-        sys->vx[i] = -v*sin(theta+dtheta);
-        sys->vy[i] =  v*cos(theta+dtheta);
-      } else {  // all planets except that indexed with i=0
-        sys->x[i] = q1[i];
-        sys->y[i] = q1[i+n];
-        sys->vx[i] = q1[i+2*n];
-        sys->vy[i] = q1[i+3*n];
+      /* Default case (see below) */
+      if (!ForcedInnerCircular) {
+        for (i = 1-(PhysicalTime >= RELEASEDATE); i < sys->nb; i++) {
+          /* Default case: planets position and velocity updated after 
+          Runge Kutta step */
+          if (!ForcedCircular) {
+            sys->x[i] = q1[i];
+            sys->y[i] = q1[i+n];
+            sys->vx[i] = q1[i+2*n];
+            sys->vy[i] = q1[i+3*n];
+          } else {
+            /* Case where planets are held on a fixed circular orbit with 
+            initial angular frequency omega */
+            x = sys->x[i];
+            y = sys->y[i];
+            theta = atan2(y,x);
+            vx = sys->vx[i];
+            vy = sys->vy[i];
+            r = sqrt(x*x + y*y);
+            v = sqrt(vx*vx + vy*vy);
+            omega = (-y*vx + x*vy)/r/r;
+            dtheta = omega*dt;
+            sys->x[i]  = r*cos(theta+dtheta);
+            sys->y[i]  = r*sin(theta+dtheta);
+            sys->vx[i] = -v*sin(theta+dtheta);
+            sys->vy[i] =  v*cos(theta+dtheta);
+          }
+        }
+      } else {
+        /* New (july 2012): particular case where inner planet held on a fixed 
+        circular orbit */
+        for (i = 0; i < n; i++) {
+          if (i == 0) {  // inner planet (i=0) fixed -> copy-paste of above
+            x = sys->x[i];
+            y = sys->y[i];
+            theta = atan2(y,x);
+            vx = sys->vx[i];
+            vy = sys->vy[i];
+            r = sqrt(x*x + y*y);
+            v = sqrt(vx*vx + vy*vy);
+            omega = (-y*vx + x*vy)/r/r;
+            dtheta = omega*dt;
+            sys->x[i]  = r*cos(theta+dtheta);
+            sys->y[i]  = r*sin(theta+dtheta);
+            sys->vx[i] = -v*sin(theta+dtheta);
+            sys->vy[i] =  v*cos(theta+dtheta);
+          } else {  // all planets except that indexed with i=0
+            sys->x[i] = q1[i];
+            sys->y[i] = q1[i+n];
+            sys->vx[i] = q1[i+2*n];
+            sys->vy[i] = q1[i+3*n];
+          }
+        }
       }
-    }
-  }
-  /* Case where the innermost planet (with index 0) is drifted
-     manually with a prescribed migration rate tuned by RELEASERADIUS 
-     and RELEASETIME in .par file */
-  if (PhysicalTime < RELEASEDATE) {
-    x = sys->x[0];
-    y = sys->y[0];
-    r = sqrt(x*x+y*y);
-    theta = atan2(y,x);
-    rdot = (RELEASERADIUS-r)/(RELEASEDATE-PhysicalTime);
-    omega = sqrt((1.+sys->mass[0])/r/r/r);
-    new_r = r + rdot*dt;
-    denom = r-new_r;
-    if (denom != 0.0) {
-      dtheta = 2.*dt*r*omega/denom*(sqrt(r/new_r)-1.);
-    } else {
-      dtheta = omega*dt;
-    }
-    vx = rdot;
-    vy = new_r*sqrt((1.+sys->mass[0])/new_r/new_r/new_r);
-    sys->x[0] = new_r*cos(dtheta+theta);
-    sys->y[0] = new_r*sin(dtheta+theta);
-    sys->vx[0]= vx*cos(dtheta+theta) - vy*sin(dtheta+theta); 
-    sys->vy[0]= vx*sin(dtheta+theta) + vy*cos(dtheta+theta); 
+      /* Case where the innermost planet (with index 0) is drifted
+         manually with a prescribed migration rate tuned by RELEASERADIUS 
+         and RELEASETIME in .par file */
+      if (PhysicalTime < RELEASEDATE) {
+        x = sys->x[0];
+        y = sys->y[0];
+        r = sqrt(x*x+y*y);
+        theta = atan2(y,x);
+        rdot = (RELEASERADIUS-r)/(RELEASEDATE-PhysicalTime);
+        omega = sqrt((1.+sys->mass[0])/r/r/r);
+        new_r = r + rdot*dt;
+        denom = r-new_r;
+        if (denom != 0.0) {
+          dtheta = 2.*dt*r*omega/denom*(sqrt(r/new_r)-1.);
+        } else {
+          dtheta = omega*dt;
+        }
+        vx = rdot;
+        vy = new_r*sqrt((1.+sys->mass[0])/new_r/new_r/new_r);
+        sys->x[0] = new_r*cos(dtheta+theta);
+        sys->y[0] = new_r*sin(dtheta+theta);
+        sys->vx[0]= vx*cos(dtheta+theta) - vy*sin(dtheta+theta); 
+        sys->vy[0]= vx*sin(dtheta+theta) + vy*cos(dtheta+theta); 
+      }
   }
 }
 

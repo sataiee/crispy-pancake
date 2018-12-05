@@ -28,7 +28,7 @@ boolean         Write_TherHeat = NO, Write_TherCool = NO, Write_ViscHeat = NO, W
 boolean         Write_Potential = NO, Write_Test = NO, Write_gr = NO, Write_gtheta = NO;
 boolean         SelfGravity = NO, SGZeroMode = NO, ZMPlus = NO, AddNoise = NO;
 boolean         EnergyEquation = NO, ModifiedSoundSpeed = NO, ThermalDiffusion = NO, ThermalCooling = NO, ViscousHeating = YES, TempPresc = NO, BetaCooling = NO, RadiativeDiffusion = NO;
-boolean         CICPlanet = NO, ForcedCircular = NO, ForcedInnerCircular = NO;
+boolean         CICPlanet = NO, ForcedCircular = NO, ForcedInnerCircular = NO, ForcedCircularTemp = NO;;
 boolean         MHDLSA = NO, HighMCutoff = NO;
 boolean         KNOpen = NO;
 boolean         AdvecteLabel = NO;
@@ -308,6 +308,13 @@ void ReadVariables(filename)
   if ((*CICPLANET == 'Y') || (*CICPLANET == 'y')) CICPlanet = YES;
   if ((*FORCEDCIRCULAR == 'Y') || (*FORCEDCIRCULAR == 'y')) ForcedCircular = YES;
   if ((*FORCEDINNERCIRCULAR == 'Y') || (*FORCEDINNERCIRCULAR == 'y')) ForcedInnerCircular = YES;
+  if ((*FORCEDCIRCULARTEMPORARY== 'Y') || (*FORCEDCIRCULARTEMPORARY == 'y')){
+		 ForcedCircularTemp = YES;
+     if (RELEASEDATE == 0.0){
+		 		mastererr ("ForcedCircularTemporary needs ReleaseDate larger than 0.\n");
+     prs_exit (1);
+     }
+  }
   if ((*READPLANETFILEATRESTART == 'N') || (*READPLANETFILEATRESTART == 'n')) ReadPlanetFileAtRestart = NO;
   if ((*DONTAPPLYSUBKEPLERIAN == 'Y') || (*DONTAPPLYSUBKEPLERIAN == 'y')) {
     masterprint ("================================================\n");
@@ -446,9 +453,9 @@ void ReadVariables(filename)
          prs_exit(1);
       }
   }
-  if ((*IMPOSEDPLANETTORQ == 'y') || (*IMPOSEDPLANETTORQ == 'Y')){
-    if (IMPOSEDGAMMA == 0.0) {
-      masterprint("You decided to impose a given torque on the planet but you forgot to give the IMPOSEDGAMMA.\n");
+  if ((*IMPOSEDGAMMA == 'y') || (*IMPOSEDGAMMA == 'Y')){
+    if (GAMMAVALUE == 0.0) {
+      masterprint("You decided to impose a given torque on the planet but you forgot to give the GAMMAVALUE.\n");
       prs_exit(1);
     }
   }

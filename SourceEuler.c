@@ -242,7 +242,7 @@ void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys)
   extern boolean FargoPlanete, AccBoundary;
   extern real Runtime;
   extern real Mdisc0;
-  real Mdiscnow, masscorenew, *Mswitch,rp;
+  real DiskMass, masscorenew, *Mswitch,rp;
   extern int dimfxy;
   extern boolean       Write_Sigdot;
   FirstGasStepFLAG=1;
@@ -472,8 +472,8 @@ void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys)
         SetEnergyFloor(Rho,Energy);
     }
     /* Check if the disc is gone */
-    Mdiscnow =   GasTotalMass(Rho);
-    if ((Mdiscnow/Mdisc0 <= 0.01) || (Rhole/GlobalRmed[GLOBALNRAD-1] >= 0.8)){
+    DiskMass =   GasTotalMass(Rho);
+    if ((DiskMass/Mdisc0 <= 0.01) || (Rhole/GlobalRmed[GLOBALNRAD-1] >= 0.8)){
       SendOutput (TimeStep, Rho, Vrad, Vtheta, Energy, Label,sys);
       WritePlanetSystemFile (sys, TimeStep+1);
       WriteMassTrack (TimeStep+1, DiskMass, EvapMass, AccMassPls);

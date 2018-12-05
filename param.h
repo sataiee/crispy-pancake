@@ -146,5 +146,6 @@ extern	real	ALPHADEAD;
 extern	real	ALPHAACTIVE;
 extern	real	SIGMAACTIVE;
 extern	char	WRITEONEDVISC[512];
-extern	char	IMPOSEDPLANETTORQ[512];
-extern	real	IMPOSEDGAMMA;
+extern	real	GAMMAVALUE;
+extern	char	IMPOSEDGAMMA[512];
+extern	char	FORCEDCIRCULARTEMPORARY[512];

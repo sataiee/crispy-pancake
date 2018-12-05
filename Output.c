@@ -264,8 +264,6 @@ void RestartPlanetarySystem (timestep, sys)
     } else {
       sys->TorqueFlag[k] = NO;
     }
-    if ((*IMPOSEDPLANETTORQ == 'y') || (*IMPOSEDPLANETTORQ == 'Y'))
-         sys->TorqueFlag[k] = YES;
       /* Below we infer planet's semi-major axis and eccentricity */
       x  = sys->x[k];
       y  = sys->y[k];
