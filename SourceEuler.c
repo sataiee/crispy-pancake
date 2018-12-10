@@ -157,7 +157,6 @@ void InitEuler (Vr, Vt, Rho, Energy, sys)
   Potential    = CreatePolarGrid(NRAD, NSEC, "Potential");
   TurbPotential= CreatePolarGrid(NRAD, NSEC, "TurbPotential");
   Pressure     = CreatePolarGrid(NRAD, NSEC, "Pressure");
-  SoundSpeed   = CreatePolarGrid(NRAD, NSEC, "SoundSpeed");
   Temperature  = CreatePolarGrid(NRAD, NSEC, "Temperature");
   Opacity      = CreatePolarGrid(NRAD, NSEC, "Opacity");
   ViscHeat     = CreatePolarGrid(NRAD, NSEC, "ViscousHeating");

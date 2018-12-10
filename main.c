@@ -159,13 +159,11 @@ main(argc, argv)
   gas_v_theta        = CreatePolarGrid(NRAD, NSEC, "vtheta");
   gas_energy         = CreatePolarGrid(NRAD, NSEC, "energy");
   gas_label          = CreatePolarGrid(NRAD, NSEC, "label");
+  SoundSpeed         = CreatePolarGrid(NRAD, NSEC, "SoundSpeed");
   masterprint ("done.\n");
   FillPolar1DArrays ();
   force = AllocateForce (dimfxy);
   
-  /* Here planets are initialized feeling star potential but they do
-     not feel disk potential */
-  sys = InitPlanetarySystem (PLANETCONFIG,NbRestart);
   /* Gas density initialization */
   InitGasDensity (gas_density);
   floordens = 1e-8; 
@@ -180,6 +178,10 @@ main(argc, argv)
      thermal energy */
   if ( EnergyEquation )
     InitGasEnergy (gas_energy);
+  
+  /* Here planets are initialized feeling star potential but they do
+     not feel disk potential */
+  sys = InitPlanetarySystem (PLANETCONFIG,NbRestart, gas_density, force);   
   
   if ( SelfGravity ) {
     /* If SelfGravity = YES or Z, planets are initialized feeling disk

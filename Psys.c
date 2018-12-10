@@ -114,9 +114,11 @@ void FreePlanetary (sys)
   free (sys);
 }
 
-PlanetarySystem *InitPlanetarySystem (filename,NbRestart)
+PlanetarySystem *InitPlanetarySystem (filename,NbRestart, Rho, force)
 char *filename;
 int NbRestart;
+PolarGrid *Rho;
+Force *force;
 {
   extern boolean CICPlanet;
   FILE *input, *DIM, *tempinput;
@@ -124,8 +126,10 @@ int NbRestart;
   char name[256];
   char s[512], nm[512], test1[512], test2[512], test3[512], *s1;
   PlanetarySystem *sys;
-  int i=0, j, nb, counter, nbplanets, fixedpls, Foo;
+  int i=0, j, nb, counter, nbplanets, fixedpls, Foo, ii, nr, ns, l;
   float mass, dist, accret, eccentricity;
+  real MassInside=0, *cs;
+  Pair gamma;
   extern real Runtime;
   int OldNSEC;
   real m0, m1, mbin, *Mswitch;
@@ -133,6 +137,9 @@ int NbRestart;
   real a, e, incl, foo, mcore, menv, dcore, stime, deltamenv;
   boolean feeldis, feelothers, binary;
   nb = FindNumberOfPlanets (filename);
+  cs = SoundSpeed->Field;
+  nr = SoundSpeed->Nrad;
+  ns = SoundSpeed->Nsec;
   Mswitch = (real *)malloc(nb*sizeof(real));
   if (CPU_Master)
     printf ("%d planet(s) found.\n", nb);
@@ -150,6 +157,14 @@ int NbRestart;
   }
   sys->nb = nb;
   if (!FargoPlanete) {
+    for (i = 0 ; i = nr; i++){
+      for (j = 0; j = ns; j++){
+        l = i*ns + j;
+        cs[l] = AspectRatio(Rmed[i])*sqrt(G*1.0/Rmed[i])*pow(Rmed[i], FLARINGINDEX);
+      }
+    }
+    i = 0;
+    j = 0;
     while (fgets(s, 510, input) != NULL) {
       sscanf(s, "%s ", nm);
       if (isalpha(s[0])) {
@@ -203,13 +218,15 @@ int NbRestart;
           nor each other: Fargo/Planet coupling where Planet handles 
           the planet evolution */
        if (tolower(*test3) == 'y') binary = YES;
+       MassInside += massinvelocity;
        sys->x[i] = (real)dist*(1.0+eccentricity);
        sys->y[i] = 0.0;
        sys->a[i] = (real)dist;
        sys->e[i] = eccentricity;
-       sys->vy[i] = (real)sqrt(G*(1.0+massinvelocity)/dist)*       \
-         sqrt( (1.0-eccentricity)/(1.0+eccentricity) );
-       sys->vx[i] = -0.000000000*sys->vy[i];
+       gamma = ComputeAccel (force, Rho, sys->x[i], sys->y[i], massinvelocity, sys, 2);
+       gamma.x -= (1.0+MassInside)/dist/dist;
+       sys->vy[i] = sqrt(dist*fabs(gamma.x))*sqrt( (1.0-eccentricity)/(1.0+eccentricity) );
+       sys->vx[i] = 0.0;
        sys->acc[i] = accret;
        sys->FeelDisk[i] = feeldis;
        sys->FeelOthers[i] = feelothers;
