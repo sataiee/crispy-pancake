@@ -17,18 +17,18 @@ extern int      begin_i;
 extern boolean  OpenInner, OneDRun;
 static Param    VariableSet[MAXVARIABLES];
 static int      VariableIndex = 0;
-static int      FirstStep = YES;
+static int	FirstStep = YES;
 static clock_t  First, Preceeding, Current, FirstUser, CurrentUser, PreceedingUser;
-static long     Ticks;
+static long	Ticks;
 boolean         FastTransport = YES, GuidingCenter = NO, BinaryCenter = NO, Indirect_Term = YES, RetrogradeBinary = NO;
 boolean         IsDisk = YES, NonReflecting = NO, Corotating = NO, OuterSourceMass = NO, Evanescent = NO, MixedBC = NO;
-boolean         Write_Density = YES, Write_Velocity = YES, Write_Energy = NO, Write_pdv=NO, Write_ArtVisc=NO;
+boolean         Write_Density = YES, Write_Velocity = YES, Write_Energy = NO;
 boolean         Write_Temperature = NO, Write_DivV = NO, Write_OneD_Fields = NO;
-boolean         Write_TherHeat = NO, Write_TherCool = NO, Write_ViscHeat = NO, Write_RadDiff=NO, Write_StarIrrad = NO, Write_Opacity=NO;
+boolean         Write_TherHeat = NO, Write_TherCool = NO, Write_ViscHeat = NO, Write_RadDiff=NO, Write_StarIrrad = NO, Write_Opacity;
 boolean         Write_Potential = NO, Write_Test = NO, Write_gr = NO, Write_gtheta = NO;
 boolean         SelfGravity = NO, SGZeroMode = NO, ZMPlus = NO, AddNoise = NO;
 boolean         EnergyEquation = NO, ModifiedSoundSpeed = NO, ThermalDiffusion = NO, ThermalCooling = NO, ViscousHeating = YES, TempPresc = NO, BetaCooling = NO, RadiativeDiffusion = NO;
-boolean         CICPlanet = NO, ForcedCircular = NO, ForcedInnerCircular = NO, ForcedCircularTemp = NO;;
+boolean         CICPlanet = NO, ForcedCircular = NO, ForcedInnerCircular = NO;
 boolean         MHDLSA = NO, HighMCutoff = NO;
 boolean         KNOpen = NO;
 boolean         AdvecteLabel = NO;
@@ -41,8 +41,9 @@ boolean         CorotateWithOuterPlanet = NO;
 boolean         DiscEvaporation = NO;
 boolean         CustomizedIT = NO;
 boolean         FargoPlanete = NO, ExponentialDecay = NO;
-boolean         PhotoEvapor = NO, AccBoundary = NO, Write_Sigdot, MdotHartmann = NO, DecInner = NO, OpInner = NO, StellarIrradiation=NO, Alexboundary=NO;
-boolean         InitEquilibrium = NO, Write_OneD_Viscosity = NO;
+boolean	    	  PhotoEvapor = NO, AccBoundary = NO, Write_Sigdot, MdotHartmann = NO, DecInner = NO, OpInner = NO, StellarIrradiation=NO;
+boolean         InitEquilibrium = NO;
+boolean         Write_torquedensity = NO;
 
 void var(name, ptr, type, necessary, deflt)
      char           *name;
@@ -53,7 +54,7 @@ void var(name, ptr, type, necessary, deflt)
 {
   real            valuer;
   int             valuei;
-  double          temp;
+  double	  temp;
   sscanf (deflt, "%lf", &temp);
   valuer = (real) (temp);
   valuei = (int) valuer;
@@ -104,28 +105,30 @@ void ReadVariables(filename)
       valuer = (real) temp;
       valuei = (int) temp;
       for (i = 0; i < strlen(nm); i++) {
-        nm[i] = (char) toupper(nm[i]);
+	nm[i] = (char) toupper(nm[i]);
       }
       found = NO;
       for (i = 0; i < VariableIndex; i++) {
-        if (strcmp(nm, VariableSet[i].name) == 0) {
-          if (VariableSet[i].read == YES)
-            mastererr("Warning : %s defined more than once.\n", nm);
-          found = YES;
-          VariableSet[i].read = YES;
-          ptri = (int *) (VariableSet[i].variable);
-          ptrr = (real *) (VariableSet[i].variable);
-          if (VariableSet[i].type == INT) {
-            *ptri = valuei;
-          } else if (VariableSet[i].type == REAL) {
-            *ptrr = valuer;
-          } else if (VariableSet[i].type == STRING) {
-            strcpy (VariableSet[i].variable, stringval);
-          }
-        }
+	if (strcmp(nm, VariableSet[i].name) == 0) {
+	  if (VariableSet[i].read == YES) {
+	    mastererr("Warning : %s defined more than once.\n", nm);
+	  }
+	  found = YES;
+	  VariableSet[i].read = YES;
+	  ptri = (int *) (VariableSet[i].variable);
+	  ptrr = (real *) (VariableSet[i].variable);
+	  if (VariableSet[i].type == INT) {
+	    *ptri = valuei;
+	  } else if (VariableSet[i].type == REAL) {
+	    *ptrr = valuer;
+	  } else if (VariableSet[i].type == STRING) {
+	    strcpy (VariableSet[i].variable, stringval);
+	  }
+	}
       }
-      if (found == NO)
-        mastererr("Warning : variable %s defined but non-existent in code.\n", nm);
+      if (found == NO) {
+	mastererr("Warning : variable %s defined but non-existent in code.\n", nm);
+      }
     }
   }
   /* NEW: project fargo/planet: if -w flag  activated, run with 1D disc */
@@ -140,27 +143,28 @@ void ReadVariables(filename)
   for (i = 0; i < VariableIndex; i++) {
     if ((VariableSet[i].read == NO) && (VariableSet[i].necessary == YES)) {
       if (found == NO) {
-        mastererr("Fatal error : undefined mandatory variable(s):\n");
-        found = YES;
+	mastererr("Fatal error : undefined mandatory variable(s):\n");
+	found = YES;
       }
       mastererr("%s\n", VariableSet[i].name);
     }
     if (found == YES)
-    prs_exit(1);
+      prs_exit(1);
+    
   }
   found = NO;
   for (i = 0; i < VariableIndex; i++) {
     if (VariableSet[i].read == NO) {
       if (found == NO) {
-        mastererr("Secondary variables omitted :\n");
-        found = YES;
+	mastererr("Secondary variables omitted :\n");
+	found = YES;
       }
       if ((type = VariableSet[i].type) == REAL)
-        mastererr("%s ;\t Default Value : %.5g\n", VariableSet[i].name, *((real *) VariableSet[i].variable));
+	mastererr("%s ;\t Default Value : %.5g\n", VariableSet[i].name, *((real *) VariableSet[i].variable));
       if (type == INT)
-        mastererr("%s ;\t Default Value : %d\n", VariableSet[i].name, *((int *) VariableSet[i].variable));
+	mastererr("%s ;\t Default Value : %d\n", VariableSet[i].name, *((int *) VariableSet[i].variable));
       if (type == STRING)
-        mastererr("%s ;\t Default Value : %s\n", VariableSet[i].name, VariableSet[i].variable);
+	mastererr("%s ;\t Default Value : %s\n", VariableSet[i].name, VariableSet[i].variable);
     }
   }
   if ((*ADVLABEL == 'y') || (*ADVLABEL == 'Y')) AdvecteLabel = YES;
@@ -168,20 +172,13 @@ void ReadVariables(filename)
   if ((*TRANSPORT == 's') || (*TRANSPORT == 'S')) FastTransport = NO;
   if ((*OPENINNERBOUNDARY == 'O') || (*OPENINNERBOUNDARY == 'o')) OpenInner = YES;
   if ((*OPENINNERBOUNDARY == 'N') || (*OPENINNERBOUNDARY == 'n')) NonReflecting = YES;
-  if ((*OPENINNERBOUNDARY == 'E') || (*OPENINNERBOUNDARY == 'e')){
-    Evanescent = YES;
-    if ((*ZEROINNER == 'O') || (*ZEROINNER == 'o')){
-      OpInner = YES;
-      masterprint("Your inner boundary will be open.\n");
-    }
-  }
+  if ((*OPENINNERBOUNDARY == 'E') || (*OPENINNERBOUNDARY == 'e')) Evanescent = YES;
   if ((*OPENINNERBOUNDARY == 'M') || (*OPENINNERBOUNDARY == 'm')) MixedBC = YES;
   if ((*OPENINNERBOUNDARY == 'A') || (*OPENINNERBOUNDARY == 'a')) AccBoundary = YES;
   if ((*OPENINNERBOUNDARY == 'K') || (*OPENINNERBOUNDARY == 'k')) {
     KNOpen = YES;
     OpenInner = YES;
   }
-  if ((*OPENINNERBOUNDARY == 'P') || (*OPENINNERBOUNDARY == 'p')) Alexboundary = YES;
   if ((*GRIDSPACING == 'L') || (*GRIDSPACING == 'l')) LogGrid = YES;
   if ((*DISK == 'N') || (*DISK == 'n')) IsDisk = NO;
   if ((*FRAME == 'C') || (*FRAME == 'c')) Corotating = YES;
@@ -205,8 +202,6 @@ void ReadVariables(filename)
   if ((*WRITETHERCOOL == 'Y') || (*WRITETHERCOOL == 'y')) Write_TherCool = YES;
   if ((*WRITERADDIFF == 'Y') || (*WRITERADDIFF == 'y')) Write_RadDiff = YES;
   if ((*WRITESTARIRRAD == 'Y') || (*WRITESTARIRRAD == 'y')) Write_StarIrrad = YES;
-  if ((*WRITEPDV == 'Y') || (*WRITEPDV == 'y')) Write_pdv = YES;
-  if ((*WRITEARTVISC == 'Y') || (*WRITEARTVISC == 'y')) Write_ArtVisc = YES;
   if ((*WRITEOPACITY =='Y') || (*WRITEOPACITY == 'y')) Write_Opacity = YES;
   if ((*WRITEPOTENTIAL == 'Y') || (*WRITEPOTENTIAL == 'y')) Write_Potential = YES;
   if ((*WRITETEST == 'Y') || (*WRITETEST == 'y')) Write_Test = YES;
@@ -216,8 +211,8 @@ void ReadVariables(filename)
   if ((*RETROGRADEPLANET == 'y') || (*RETROGRADEPLANET == 'Y')) RetrogradePlanet = YES;
   if ((*ADDMASS == 'y') || (*ADDMASS == 'Y')) AddMass = YES;
   if ((*EXPONENTIALDECAY == 'y') || (*EXPONENTIALDECAY == 'Y')) {
-    ExponentialDecay = YES;
-    CentrifugalBalance = YES;
+	ExponentialDecay = YES;
+        CentrifugalBalance = YES;
   }
   if ((*DISCEVAPORATION == 'y') || (*DISCEVAPORATION == 'Y')) {
     DiscEvaporation = YES;
@@ -228,8 +223,8 @@ void ReadVariables(filename)
   }
   if ((*DAMPTOINI == 'n') || (*DAMPTOINI == 'N')) DampToIni = NO;
   if ((*DAMPTOAXI == 'y') || (*DAMPTOAXI == 'Y')) {
-    DampToAxi = YES;
-    DampToIni = NO;
+	DampToAxi = YES;
+	DampToIni = NO;
   }
   if ((*CUTFORCES == 'y') || (*CUTFORCES == 'Y')) CutForces = YES;
   if ((*COROTATEWITHOUTERPLANET == 'y') || (*COROTATEWITHOUTERPLANET == 'Y')) CorotateWithOuterPlanet = YES;
@@ -272,8 +267,8 @@ void ReadVariables(filename)
   }
   if ( (*STARIRRAD == 'Y') || (*STARIRRAD == 'y'))  IrradStar = YES; //This is the model with calculating direct heating (Sareh)
   if (StellarIrradiation && IrradStar){
-    mastererr("You cannot have StellarIrradiation and StarIrrad together.\n");
-    prs_exit(1);
+      mastererr("You cannot have StellarIrradiation and StarIrrad together.\n");
+      prs_exit(1);
   }
   if ((EnergyEquation) && (ADIABATICINDEX == 1)) {
     masterprint ("You cannot have EnergyEquation = YES and AdiabatcIndex = 1.");
@@ -288,7 +283,6 @@ void ReadVariables(filename)
       BetaCooling = NO;  
       StellarIrradiation = NO; 
       IrradStar = NO;
-      ADIABATICINDEX = 1.0;
   }
   if ((*WRITEENERGY == 'N') || (*WRITEENERGY == 'n')) Write_Energy = NO;
   if ((*MHD == 'L') || (*MHD == 'l')) {
@@ -308,13 +302,6 @@ void ReadVariables(filename)
   if ((*CICPLANET == 'Y') || (*CICPLANET == 'y')) CICPlanet = YES;
   if ((*FORCEDCIRCULAR == 'Y') || (*FORCEDCIRCULAR == 'y')) ForcedCircular = YES;
   if ((*FORCEDINNERCIRCULAR == 'Y') || (*FORCEDINNERCIRCULAR == 'y')) ForcedInnerCircular = YES;
-  if ((*FORCEDCIRCULARTEMPORARY== 'Y') || (*FORCEDCIRCULARTEMPORARY == 'y')){
-		 ForcedCircularTemp = YES;
-     if (RELEASEDATE == 0.0){
-		 		mastererr ("ForcedCircularTemporary needs ReleaseDate larger than 0.\n");
-     prs_exit (1);
-     }
-  }
   if ((*READPLANETFILEATRESTART == 'N') || (*READPLANETFILEATRESTART == 'n')) ReadPlanetFileAtRestart = NO;
   if ((*DONTAPPLYSUBKEPLERIAN == 'Y') || (*DONTAPPLYSUBKEPLERIAN == 'y')) {
     masterprint ("================================================\n");
@@ -385,13 +372,11 @@ void ReadVariables(filename)
   if (OverridesOutputdir == YES) {
     sprintf (OUTPUTDIR, "%s", NewOutputdir);
   }
-  if (Evanescent || Alexboundary){
-    if ( (WKZRMIN == 0.0) || (WKZRMAX == 0.0) ) {
-      mastererr ("Evanescent 'wave-killing zones' assumed as a boundary condition, \n");
-      mastererr ("but you did not specify the radii of the border zones. Please run again.\n");
-      mastererr ("by setting the values for WKZRMIN and WKZRMAX");
-      prs_exit (1);
-    }
+  if (Evanescent && ( (WKZRMIN == 0.0) || (WKZRMAX == 0.0) )) {
+    mastererr ("Evanescent 'wave-killing zones' assumed as a boundary condition, \n");
+    mastererr ("but you did not specify the radii of the border zones. Please run again.\n");
+    mastererr ("by setting the values for WKZRMIN and WKZRMAX");
+    prs_exit (1);
   }
   if (MixedBC) {
     WKZRMIN = 0.0;
@@ -408,12 +393,12 @@ void ReadVariables(filename)
   }
   if (AccBoundary) {
     if (!MdotHartmann){
-      if ((MDOTINIT == 0.0) || (MDOTFINAL == 0.0) || (MDOTTIME == 1)){
-        mastererr ("For having an accreting boundary, you need to set\n");
-        mastererr ("MDOTINIT, MDOTFINAL, MDOTTIME in the .par file.\n");
-        prs_exit (1);
-      }
-    } else if (MDOTTIME != 1.0) {
+	  if ((MDOTINIT == 0.0) || (MDOTFINAL == 0.0) || (MDOTTIME == 1)){
+		  mastererr ("For having an accreting boundary, you need to set\n");
+		  mastererr ("MDOTINIT, MDOTFINAL, MDOTTIME in the .par file.\n");
+		  prs_exit (1);
+	  }
+    } else if (MDOTTIME != 1.0){
           mastererr("You can not use mdot Hartmann and user a definded value at the same time.\n");
     }
     if ((*ZEROINNER == 'D') || (*ZEROINNER == 'd')){
@@ -440,7 +425,7 @@ void ReadVariables(filename)
     strcat (OUTPUTDIR, "/");
   /* Creat the output directory if not exist */
   if (stat(OUTPUTDIR, &stoutput) == -1){
-     sprintf (CommandLine, "mkdir -p %s", OUTPUTDIR);
+     sprintf (CommandLine, "mkdir %s", OUTPUTDIR);
      system (CommandLine);
   }
 
@@ -453,14 +438,7 @@ void ReadVariables(filename)
          prs_exit(1);
       }
   }
-  if ((*IMPOSEDGAMMA == 'y') || (*IMPOSEDGAMMA == 'Y')){
-    if (GAMMAVALUE == 0.0) {
-      masterprint("You decided to impose a given torque on the planet but you forgot to give the GAMMAVALUE.\n");
-      prs_exit(1);
-    }
-  }
-  if ((*WRITEONEDVISC == 'Y') || (*WRITEONEDVISC == 'y'))
-    Write_OneD_Viscosity = YES;
+  if ((*WRITETORQUEDENSITY == 'Y') || (*WRITETORQUEDENSITY == 'y')) Write_torquedensity = YES;
 }
 
 void PrintUsage (execname)
@@ -513,7 +491,7 @@ void TellEverything () {
   printf ("Aspect Ratio          : %g\n", ASPECTRATIO);
   printf ("VKep at inner edge    : %.3g\n", sqrt(G*1.0*(1.-0.0)/RMIN));
   printf ("VKep at outer edge    : %.3g\n", sqrt(G*1.0/RMAX));
-  temp=(PMAX-PMIN)*SIGMA0/(2.0-SIGMASLOPE)*(pow(RMAX,2.0-SIGMASLOPE) - pow(RMIN,2.0-SIGMASLOPE));  /* correct this and what follows... */
+  temp=(PMAX-PMIN)*SIGMA0/(2.0-SIGMASLOPE)*(pow(RMAX,2.0-SIGMASLOPE) - pow(RMIN,2.0-SIGMASLOPE));	/* correct this and what follows... */
   printf ("Initial Disk Mass             : %g\n", temp);
   temp=(PMAX-PMIN)*SIGMA0/(2.0-SIGMASLOPE)*(1.0 - pow(RMIN,2.0-SIGMASLOPE));
   printf ("Initial Mass inner to r=1.0  : %g \n", temp);
@@ -579,7 +557,8 @@ void GiveTimeInfo (number)
     fprintf (stderr, "Time counters initialized\n");
     FirstStep = NO;
     Ticks = sysconf (_SC_CLK_TCK);
-  } else {
+  }
+  else {
     total = (real)(Current - First)/Ticks;
     totalu= (real)(CurrentUser-FirstUser)/Ticks;
     last  = (real)(CurrentUser - PreceedingUser)/Ticks;
@@ -591,7 +570,7 @@ void GiveTimeInfo (number)
     fprintf (stderr, "Mean CPU Time between time steps : %.3f s\n", mean);
     fprintf (stderr, "CPU Load on last time step : %.1f %% \n", (real)(CurrentUser-PreceedingUser)/(real)(Current-Preceeding)*100.);
     
-  }  
+  }	
   PreceedingUser = CurrentUser;
   Preceeding = Current;
 }

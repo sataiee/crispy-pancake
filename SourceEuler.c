@@ -70,11 +70,13 @@ void FillPolar1DArrays ()
   if (input == NULL) {
     mastererr ("Warning : no `radii.dat' file found. Using default.\n");
     if (LogGrid == YES) {
-      for (i = 0; i <= GLOBALNRAD; i++)
+      for (i = 0; i <= GLOBALNRAD; i++) {
        Radii[i] = RMIN*exp((real)i/(real)GLOBALNRAD*log(RMAX/RMIN));
+      }
     } else {
-      for (i = 0; i <= GLOBALNRAD; i++)
+      for (i = 0; i <= GLOBALNRAD; i++) {
        Radii[i] = RMIN+drrsep*(real)(i);
+      }
     }
   } else {
     mastererr ("Reading 'radii.dat' file.\n");
@@ -109,8 +111,9 @@ void FillPolar1DArrays ()
       mastererr ("Can't write %s.\nProgram stopped.\n", OutputName);
       prs_exit (1);
     }
-    for (i = 0; i <= GLOBALNRAD; i++)
+    for (i = 0; i <= GLOBALNRAD; i++) {
       fprintf (output, "%.18g\n", Radii[i]);
+    }
     fclose (output);
   }
   if (input != NULL) fclose (input);
@@ -157,6 +160,7 @@ void InitEuler (Vr, Vt, Rho, Energy, sys)
   Potential    = CreatePolarGrid(NRAD, NSEC, "Potential");
   TurbPotential= CreatePolarGrid(NRAD, NSEC, "TurbPotential");
   Pressure     = CreatePolarGrid(NRAD, NSEC, "Pressure");
+  SoundSpeed   = CreatePolarGrid(NRAD, NSEC, "SoundSpeed");
   Temperature  = CreatePolarGrid(NRAD, NSEC, "Temperature");
   Opacity      = CreatePolarGrid(NRAD, NSEC, "Opacity");
   ViscHeat     = CreatePolarGrid(NRAD, NSEC, "ViscousHeating");
@@ -164,8 +168,6 @@ void InitEuler (Vr, Vt, Rho, Energy, sys)
   ThermCool    = CreatePolarGrid(NRAD, NSEC, "ThermalCooling");
   RadDiffusion    = CreatePolarGrid(NRAD, NSEC, "RadiativeDiffusion");
   StarIrradiation = CreatePolarGrid(NRAD, NSEC, "StarIrradiation");
-  ArtViscHeat     = CreatePolarGrid(NRAD, NSEC, "ArtViscousHeating");
-  pdvEnergy       = CreatePolarGrid(NRAD, NSEC, "pdvEnergy");
   Test    = CreatePolarGrid(NRAD, NSEC, "Test");
   InitComputeAccel ();
   /* Rho and Energy are already initialized: cf main.c */
@@ -235,31 +237,27 @@ void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys)
   real dthydro, dtnbody, dt, buf, dtemp=0.0;
   real xk, xj, yk, yj, mk, mj, dist;
   real OmegaNew, domega;
-  int gastimestepcfl, k, j, NbPlanets;
-  int ip;
+  int gastimestepcfl, k, j, i, NbPlanets;
+  int fqoutcounter, ip;
   boolean Crashed=NO;
   extern boolean FargoPlanete, AccBoundary;
   extern real Runtime;
   extern real Mdisc0;
-  real DiskMass, masscorenew, *Mswitch,rp;
+  real Mdiscnow, masscorenew, *Mswitch,rp;
   extern int dimfxy;
   extern boolean       Write_Sigdot;
   FirstGasStepFLAG=1;
   gastimestepcfl = 1;
   NbPlanets = sys->nb;
   Mswitch = (real *)malloc(NbPlanets*sizeof(real));
-  if (EnergyEquation || ModifiedSoundSpeed) {
-    ComputeSoundSpeed (Rho, Energy, sys);
-    /* it is necessary to update calculation of soundspeed if one uses
-       alphaviscosity in FViscosity. It is not necessary in locally
-       isothermal runs since sounsspeed is constant. It is computed
-       here for the needs of ConditionCFL. */
-  }
-  mpi_make1Dprofile (SoundSpeed->Field, axics);
-  mpi_make1Dprofile (Rho->Field, axidens);
-  mpi_make1Dprofile (Temperature->Field, axitemp);
-  mpi_make1Dprofile (Opacity->Field, opaaxi);
   if (IsDisk == YES) {
+		if (EnergyEquation || ModifiedSoundSpeed) {
+		ComputeSoundSpeed (Rho, Energy, sys);
+		/* it is necessary to update calculation of soundspeed if one uses
+			 alphaviscosity in FViscosity. It is not necessary in locally
+			 isothermal runs since sounsspeed is constant. It is computed
+			 here for the needs of ConditionCFL. */
+		}	  
     CommunicateBoundaries (Rho, Vrad, Vtheta, Energy, Label);
     if (SloppyCFL == YES)
       gastimestepcfl = ConditionCFL (Rho,Vrad, Vtheta, DT-dtemp);
@@ -267,9 +265,10 @@ void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys)
   MPI_Allreduce (&gastimestepcfl, &GasTimeStepsCFL, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
   /* dthydro is the hydrodynamic timestep */
   dthydro = DT / (real)GasTimeStepsCFL;
-  dtnbody = dthydro;
   if (NbPlanets > 1) {
     /* dtnbody is the n-body timestep */
+//    dtnbody = 1e5;
+    dtnbody = DT;
     for (k = 0; k < NbPlanets; k++) {
       sys->mass[k] = FinalPlanetMass[k];
       for (j = k+1; j < NbPlanets; j++) {
@@ -286,87 +285,110 @@ void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys)
          dtnbody = min2(dtnbody,buf);
       }
     }
+  } else {
+    /* if there is only one planet, we set dtnbody equal to dthydro */
+    dtnbody = dthydro;
   }
   /* dt is the minimum between dthydro and dtnbody */
-  dt = min2(dthydro,dtnbody);
+  if (IsDisk == YES) {
+    dt = min2(dthydro,dtnbody);
+  } else {
+    dt = dtnbody;
+  }
+//  printf("dthydro = %g, dtnbody = %g, dt = %g\n",dthydro,dtnbody,dt);
+  fqoutcounter = 0;
   while (dtemp < 0.999999999*DT) {
+     mpi_make1Dprofile (SoundSpeed->Field, GLOBAL_bufarray);
+     mpi_make1Dprofile (Rho->Field, axidens);
+     mpi_make1Dprofile (Temperature->Field, axitemp);
+     mpi_make1Dprofile (Opacity->Field, opaaxi);
     if (!FargoPlanete) {
       MassTaper = (PhysicalTime-PhysicalTimeInitial)/(MASSTAPER*2.0*M_PI);
       MassTaper = (MassTaper > 1.0 ? 1.0 : pow(sin(MassTaper*M_PI/2.0),2.0));
     } else {
       MassTaper = (PhysicalTime-PhysicalTimeInitial)/Runtime;
     }
-    for (k = 0; k < NbPlanets; k++){
-      if (!FargoPlanete){
+   for (k = 0; k < NbPlanets; k++){
+       if (!FargoPlanete){
         sys->mass[k] = PlanetMassAtRestart[k] + (FinalPlanetMass[k]-PlanetMassAtRestart[k])*MassTaper;
-      } else {
+       } else {
         masscorenew = PlanetMassAtRestart[k] + (FinalPlanetMass[k]-PlanetMassAtRestart[k])*MassTaper;
         sys->mass[k] = masscorenew + Menvelope[k];
         if (FinalPlanetMass[k] == 0.0)
-          sys->mass[k] = 0.0;
+            sys->mass[k] = 0.0;
+        }
         rp = sqrt(pow(sys->x[k],2)+pow(sys->y[k],2));
         ip = ReturnIndex(rp);
-        Mswitch[k] = MCRIFACTOR * pow(axics[ip]*pow(GlobalRmed[ip],0.5),3);
-        if ((sys->mass[k] < Mswitch[k]) && !(sys->TorqueFlag[k]))
-          sys->TorqueFlag[k] = YES;
-      }
+        Mswitch[k] = MCRIFACTOR * pow(GLOBAL_bufarray[ip]*pow(GlobalRmed[ip],0.5),3);
+        if  (FargoPlanete) {
+          if ((sys->mass[k] < Mswitch[k]) && !(sys->TorqueFlag[k]))
+            sys->TorqueFlag[k] = YES;
+        }
     }
     /* The current planet masses at t=PhysicalTime */
-    dtnbody = dthydro;
     if (NbPlanets > 1) {
+//      dtnbody = 1e5;
+      dtnbody = DT;
       for (k = 0; k < NbPlanets; k++) {
-        for (j = k+1; j < NbPlanets; j++) {
-          xk = sys->x[k];
-          xj = sys->x[j];
-          yk = sys->y[k];
-          yj = sys->y[j];
-          mk = sys->mass[k];
-          mj = sys->mass[j];
-          dist = sqrt( (xk-xj)*(xk-xj) + (yk-yj)*(yk-yj) );
-          buf = 2.0*M_PI*sqrt( dist*dist*dist / (mk+mj+1e-8) )/BINARYSECURITY;
-          if ((mk > 0) && (mj > 0))
-            dtnbody = min2(dtnbody,buf);
-            /* dtnbody is the n-body timestep */
-        }
+       for (j = k+1; j < NbPlanets; j++) {
+         xk = sys->x[k];
+         xj = sys->x[j];
+         yk = sys->y[k];
+         yj = sys->y[j];
+         mk = sys->mass[k];
+         mj = sys->mass[j];
+         dist = sqrt( (xk-xj)*(xk-xj) + (yk-yj)*(yk-yj) );
+         buf = 2.0*M_PI*sqrt( dist*dist*dist / (mk+mj+1e-8) )/BINARYSECURITY;
+         if ((mk > 0) && (mj > 0))
+         /* dtnbody is the n-body timestep */
+           dtnbody = min2(dtnbody,buf);
+       }
       }
+    } else {
+      /* if there is only one planet, we set dtnbody equal to dthydro */
+      dtnbody = dthydro;
     }
     if (IsDisk == YES) {
       CommunicateBoundaries (Rho, Vrad, Vtheta, Energy, Label);
       if (SloppyCFL == NO) {
-        gastimestepcfl = 1;
-        gastimestepcfl = ConditionCFL (Rho,Vrad, Vtheta, DT-dtemp);
-        MPI_Allreduce (&gastimestepcfl, &GasTimeStepsCFL, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-        /* dthydro is the hydrodynamic timestep */
-        dthydro = (DT-dtemp)/(real)GasTimeStepsCFL;
+       gastimestepcfl = 1;
+       gastimestepcfl = ConditionCFL (Rho,Vrad, Vtheta, DT-dtemp);
+       MPI_Allreduce (&gastimestepcfl, &GasTimeStepsCFL, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+       /* dthydro is the hydrodynamic timestep */
+       dthydro = (DT-dtemp)/(real)GasTimeStepsCFL;
+       /* dt is the minimum between dthydro and dtnbody */
+       dt = min2(dthydro,dtnbody);
+       //printf("dthydro = %g, dtnbody = %g, dt = %g\n",dthydro,dtnbody,dt);
       }
       AccreteOntoPlanets (Rho, Vrad, Vtheta, dt, sys);
+    } else {
+      dt = dtnbody;
+      //printf("dtnbody = %g, dt = %g\n",dtnbody,dt);
     }
-    /* dt is the minimum between dthydro and dtnbody */
-    dt = min2(dthydro,dtnbody);
     dtemp += dt;
     DiskOnPrimaryAcceleration.x = 0.0;
     DiskOnPrimaryAcceleration.y = 0.0;
-    if (Corotating == YES)
-     GetPsysInfo (sys, MARK);
+    if (Corotating == YES) GetPsysInfo (sys, MARK);
     if (IsDisk == YES) {
       /* Indirect term of star potential */
-      DiskOnPrimaryAcceleration   = ComputeAccel (force, Rho, 0.0, 0.0, 0.0, sys, 2);
+      DiskOnPrimaryAcceleration   = ComputeAccel (force, Rho, 0.0, 0.0, 0.0, 0.0, sys, 2, -1);
       /* Gravitational potential from star and planet(s) */
       FillForcesArrays (sys, Rho, Energy, Vtheta, dt);
       /* Planets' velocities are updated with gravitationnal
-      interaction with disk */
+        interaction with disk */
       AdvanceSystemFromDisk (force, Rho, Energy, sys, dt);
     }
     /* Planets' positions and velocities are updated with
-    gravitational interaction with star and other planets */
-    AdvanceSystemRK5 (sys, dt);
+       gravitational interaction with star and other planets */
+    for (i = 0; i < 5; i++)
+			AdvanceSystemRK5 (sys, 1.0 / 5.0 * dt);
     /* Below we correct vtheta, the planet's position and velocities
-    if we work in a frame non-centered on the primary */
+       if we work in a frame non-centered on the primary */
     if (Corotating == YES) {
       OmegaNew = GetPsysInfo(sys, GET) / dt;
       domega = OmegaNew-OmegaFrame;
       if (IsDisk == YES)
-        CorrectVtheta (Vtheta, domega);
+       CorrectVtheta (Vtheta, domega);
       OmegaFrame = OmegaNew;
     }
     RotatePsys (sys, OmegaFrame*dt);
@@ -374,118 +396,106 @@ void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys)
     if (IsDisk == YES) {
       ApplyBoundaryCondition (Vrad, Vtheta, Rho, Energy, dt, sys);
       Crashed = DetectCrash (Rho);    /* test for negative density values */
-      if (Crashed == YES) {
-        if (AlreadyCrashed == 0) {
-          timeCRASH=PhysicalTime;   /* if it appears to be the first crash */
-          fprintf (stdout,"\nCrash in density! at time %.12g\n", timeCRASH);
-          WriteDiskPolar (Rho, 999);    /* We write the HD arrays */
-          WriteDiskPolar (Vrad, 999);   /* in order to keep a track */
-          WriteDiskPolar (Vtheta, 999); /* of what happened */
-          WriteDiskPolar (Energy, 999);
-        }
-        AlreadyCrashed++;
-        masterprint ("c");
-      }
       Crashed = DetectCrash (Energy);  /* test for negative energy values */
       if (Crashed == YES) {
-        if (AlreadyCrashed == 0) {
-          timeCRASH=PhysicalTime;   /* if it appears to be the first crash */
-          fprintf (stdout,"\nCrash in energy! at time %.12g\n", timeCRASH);
-          WriteDiskPolar (Rho, 999);    /* We write the HD arrays */
-          WriteDiskPolar (Vrad, 999);   /* in order to keep a track */
-          WriteDiskPolar (Vtheta, 999); /* of what happened */
-          WriteDiskPolar (Energy, 999);
-        }
-        AlreadyCrashed++;
-        masterprint ("c");
+       if (AlreadyCrashed == 0) {
+         timeCRASH=PhysicalTime;   /* if it appears to be the first crash */
+         fprintf (stdout,"\nCrash! at time %.12g\n", timeCRASH);
+         WriteDiskPolar (Rho, 999);    /* We write the HD arrays */
+         WriteDiskPolar (Vrad, 999);   /* in order to keep a track */
+         WriteDiskPolar (Vtheta, 999); /* of what happened */
+         WriteDiskPolar (Energy, 999);
+       }
+       AlreadyCrashed++;
+       masterprint ("c");
       } else {
-        masterprint (".");
+       masterprint (".");
       }
       fflush (stdout);
       if (ZMPlus) {
-        /* To model the non-axisymmetric component of the gas
-        self-gravity with an anisotropic pressure (see aniso.c) */
-        compute_anisotropic_pressurecoeff (sys);
+       /* To model the non-axisymmetric component of the gas
+          self-gravity with an anisotropic pressure (see aniso.c) */
+       compute_anisotropic_pressurecoeff (sys);
       }
+      if (PhotoEvapor){
+          EvapMass += PhotoEvaporation(Vrad,Rho, dt);
+          /* Check if the disc is gone */    
+          ApplyBoundaryCondition (Vrad, Vtheta, Rho, Energy, dt, sys);
+        }
       /* Thermal diffusion needs to be applied first */
       if (EnergyEquation) {
         ComputeOpacities (Rho, Energy);
-        if (ThermalDiffusion) {
-          ComputeThermalDiffusion (Rho, Energy);
-          SubStep0(Rho, Energy, dt);
-        } else if (RadiativeDiffusion){
+       if (ThermalDiffusion) {
+         ComputeThermalDiffusion (Rho, Energy);
+         SubStep0(Rho, Energy, dt);
+       } else if (RadiativeDiffusion){
           ComputeRadiavtiveDiffusion(Rho, Energy);
-          SubStep0(Rho, Energy, dt);
+         SubStep0(Rho, Energy, dt);
         }
       }
-      ComputeTemperatureField (Rho, Energy);
-      ComputeSoundSpeed (Rho, Energy, sys);
+      /* NEW: modified sound speed expression. Need to update sound
+        speed before calculating pressure */
+      if (ModifiedSoundSpeed)
+       ComputeSoundSpeed (Rho, Energy, sys);
       ComputePressureField (Rho, Energy);
       /* Update vrad and vtheta with pressure, gravity and curvature
-      source terms */
+        source terms */
       SubStep1 (Vrad, Vtheta, Rho, sys, dt);
       /* Add some artifical viscosity */
       SubStep2 (Rho, Energy, dt);
       ActualiseGas (Vrad, VradNew);
       ActualiseGas (Vtheta, VthetaNew);
       if (EnergyEquation) {
-        /* Update thermal energy with heating, cooling source terms */
-        if (ViscousHeating) {
-          ComputeViscousTerms (Vrad, Vtheta, Rho);
-          ComputeViscousHeating (Rho);
-        }
-        if (ThermalCooling)
-          ComputeThermalCooling (Rho, Energy);
+       /* Update thermal energy with heating, cooling source terms */
+       if (ViscousHeating) {
+         ComputeViscousTerms (Vrad, Vtheta, Rho);
+         ComputeViscousHeating (Rho);
+       }
+       if (ThermalCooling)
+         ComputeThermalCooling (Rho, Energy);
         if (IrradStar)
           ComputeStarIrrad (Rho);
-        SubStep3 (Rho, Vtheta, dt);
-        ActualiseGas (Energy, EnergyNew);
+       SubStep3 (Rho, Vtheta, dt);
+       ActualiseGas (Energy, EnergyNew);
       }
       ApplyBoundaryCondition (Vrad, Vtheta, Rho, Energy, dt, sys);
       /* Update velocities, surface density and thermal energy with
-      advective terms */
+        advective terms */
       Transport (Rho, Vrad, Vtheta, Energy, Label, dt);
       ApplyBoundaryCondition (Vrad, Vtheta, Rho, Energy, dt, sys);
       /* Call to routine that reestablishes initial surface density on
-      fixed timescale */
+        fixed timescale */
       if (AddMass) {
-        DampDensity(Vrad, Vtheta, Rho, Energy, dt, sys);
-        ApplyBoundaryCondition (Vrad, Vtheta, Rho, Energy, dt, sys);
+       DampDensity(Vrad, Vtheta, Rho, Energy, dt, sys);
+       ApplyBoundaryCondition (Vrad, Vtheta, Rho, Energy, dt, sys);
       }
       if (DiscEvaporation) {
-        Evaporation(Rho, dt);
-        ApplyBoundaryCondition (Vrad, Vtheta, Rho, Energy, dt, sys);
-      }
-      if (PhotoEvapor){
-        EvapMass += PhotoEvaporation(Vrad,Rho, dt);
-        ApplyBoundaryCondition (Vrad, Vtheta, Rho, Energy, dt, sys);
+       Evaporation(Rho, dt);
+       ApplyBoundaryCondition (Vrad, Vtheta, Rho, Energy, dt, sys);
       }
       /* Update just for outputs... */
       ComputeTemperatureField (Rho, Energy);
       /* Calculate mass (and mass excess) inside the planet's
-      circumplanetary disk */
+        circumplanetary disk */
       mdcp = CircumPlanetaryMass (Rho, sys);
       exces_mdcp = mdcp - mdcp0;
-      SetRhoFloor(Rho);
-      if (EnergyEquation)
-        SetEnergyFloor(Rho,Energy);
+             SetRhoFloor(Rho);
+         if (EnergyEquation)
+              SetEnergyFloor(Rho,Energy);
     }
     /* Check if the disc is gone */
-    DiskMass =   GasTotalMass(Rho);
-    if ((DiskMass/Mdisc0 <= 0.01) || (Rhole/GlobalRmed[GLOBALNRAD-1] >= 0.8)){
-      SendOutput (TimeStep, Rho, Vrad, Vtheta, Energy, Label,sys);
-      WritePlanetSystemFile (sys, TimeStep+1);
-      WriteMassTrack (TimeStep+1, DiskMass, EvapMass, AccMassPls);
-      if (Write_Sigdot)
-        WriteSigmaDotFile(TimeStep+1);
-      UpdateLog (force, sys, Rho, Energy, TimeStep+1, PhysicalTime, dimfxy);
-      masterprint("Disc is gone\n");
-      prs_exit(0);              
-    }
-    mpi_make1Dprofile (SoundSpeed->Field, axics);
-    mpi_make1Dprofile (Rho->Field, axidens);
-    mpi_make1Dprofile (Temperature->Field, axitemp);
-    mpi_make1Dprofile (Opacity->Field, opaaxi);
+    Mdiscnow =   GasTotalMass(Rho);
+    if ((Mdiscnow/Mdisc0 <= 0.01) || (Rhole/GlobalRmed[GLOBALNRAD-1] >= 0.8)){
+              SendOutput (TimeStep, Rho, Vrad, Vtheta, Energy, Label,sys);
+              WritePlanetSystemFile (sys, TimeStep+1);
+              WriteMassTrack (TimeStep+1, DiskMass, EvapMass, AccMassPls);
+              if (Write_Sigdot){
+                     WriteSigmaDotFile(TimeStep+1);
+              }
+              UpdateLog (force, sys, Rho, Energy, TimeStep+1, PhysicalTime, dimfxy);
+              masterprint("Disc is gone\n");
+              prs_exit(0);              
+       }
     PhysicalTime += dt;
   }
   masterprint ("\n");
@@ -602,7 +612,7 @@ void SubStep2 (Rho, Energy, dt)
      real dt;
 {
   int i, j, l, lim, lip, ljm, ljp, nr, ns;
-  real *vrad, *vtheta, *rho, *energy, *artvischeat;
+  real *vrad, *vtheta, *rho, *energy;
   real *vradnew, *vthetanew, *qt, *qr, *energyint;
   real dxtheta, invdxtheta;
   real dv;
@@ -617,7 +627,6 @@ void SubStep2 (Rho, Energy, dt)
   qt = TemperInt->Field;
   energy = Energy->Field;
   energyint = EnergyInt->Field;
-  artvischeat = ArtViscHeat->Field;
 #pragma omp parallel for private(j,dxtheta,l,lim,lip,ljm,ljp,dv)
   for (i = 0; i < nr; i++) {
     for (j = 0; j < ns; j++) {
@@ -671,8 +680,6 @@ void SubStep2 (Rho, Energy, dt)
          energyint[l] = energy[l] -                            \
            dt*qr[l]*(vrad[lip]-vrad[l])*InvDiffRsup[i] -       \
            dt*qt[l]*(vtheta[ljp]-vtheta[l])*invdxtheta;
-         artvischeat[l] = -qr[l]*(vrad[lip]-vrad[l])*InvDiffRsup[i] -       \
-           qt[l]*(vtheta[ljp]-vtheta[l])*invdxtheta;
        }
       }
     }
@@ -685,7 +692,7 @@ void SubStep3 (Rho, Vtheta, dt)
 {
   extern boolean TempPresc, BetaCooling, IrradStar;
   int i, j, l, nr, ns;
-  real *energy, *energynew, *dens, *divergence, *vischeat, *therheat, *thercool, *vtheta, *opacity, *soundspeed, *stirrad, *pdvenergy;
+  real *energy, *energynew, *dens, *divergence, *vischeat, *therheat, *thercool, *vtheta, *opacity, *soundspeed, *stirrad;
   real num, den, omega, beta, coolingtime, horizontaltau, tau, h, epsilon = 0.5, taueff;
   nr = Rho->Nrad;
   ns = Rho->Nsec;
@@ -700,7 +707,6 @@ void SubStep3 (Rho, Vtheta, dt)
   stirrad = StarIrradiation->Field;
   opacity = Opacity->Field;
   soundspeed = SoundSpeed->Field;
-  pdvenergy = pdvEnergy->Field;
   /* In this substep, we update the gas thermal energy with source
      terms (compression/dilatation, viscous heating, thermal
      diffusion, temperature prescription) */
@@ -714,7 +720,6 @@ void SubStep3 (Rho, Vtheta, dt)
        num = energy[l];
        den = 1.0+(ADIABATICINDEX-1.0)*dt*divergence[l];
        energynew[l] = num/den;
-       pdvenergy[l] = energynew[l]-energy[l];
       }
     }
     /* Update (explicite) with viscous heating (Q+ term, see
@@ -846,7 +851,7 @@ int ConditionCFL (Rho,Vrad, Vtheta, deltaT)
       invdt4 = max2(dvr/dxrad,dvt/dxtheta);
       invdt4*= 4.0*CVNR*CVNR;
       if ( ViscosityAlpha || (VISCOSITY != 0.0) ) 
-       invdt5 = FViscosity(Rmed[i],cs,dens[l])*4.0/pow(min2(dxrad,dxtheta),2.0);
+       invdt5 = FViscosity(Rmed[i])*4.0/pow(min2(dxrad,dxtheta),2.0);
       else 
        invdt5 = 1e-10;
       if (ThermalDiffusion){ 
@@ -913,7 +918,7 @@ void ComputeViscousHeating (Rho)
   int i, j, l, nr, ns;
   int lip, li2p;
   real r, rip, ri2p, qpip, qpi2p, viscosity;
-  real *dens, *divergence, *Trr, *Trp, *Tpp, *vischeat, *cs;
+  real *dens, *divergence, *Trr, *Trp, *Tpp, *vischeat;
   nr = Rho->Nrad;
   ns = Rho->Nsec;
   dens = Rho->Field;
@@ -922,15 +927,14 @@ void ComputeViscousHeating (Rho)
   Trr = TAURR->Field;
   Trp = TAURP->Field;
   Tpp = TAUPP->Field;
-  cs  = SoundSpeed->Field; 
   /* We calculate the heating source term from i=1 */
   for (i = 1; i < nr; i++) {     /* Trp defined from i=1 */
+    if (ViscosityAlpha || (VISCOSITY != 0.0) )
+      viscosity = FViscosity (Rmed[i]);
     if (!ViscosityAlpha && (VISCOSITY == 0.0) )
       viscosity = 0.0;
     for (j = 0; j < ns; j++) {
       l = j+i*ns;
-      if (ViscosityAlpha || (VISCOSITY != 0.0) )
-        viscosity = FViscosity (Rmed[i], cs[l], dens[l]);
       if (viscosity != 0.0) {
        vischeat[l] = 0.5/viscosity/dens[l]*( Trr[l]*Trr[l] +              \
                                          2.0*Trp[l]*Trp[l] +       \
@@ -970,7 +974,7 @@ void ComputeOpacities (Rho, Energy)
    real *opacity;
    real *test;
    real temp, phys_temp;
-   real H;
+   real roversigma, buf;
    real temp_transition_34, temp_transition_45, temp_transition_56, temp_transition_67, temp_transition_78;
    dens = Rho->Field;
    energ = Energy->Field;
@@ -982,11 +986,12 @@ void ComputeOpacities (Rho, Energy)
      for (j = 0; j < ns; j++) {
        l = i*ns + j;
        /* Convert code temperature into Kelvins */
-       temp = (ADIABATICINDEX-1.0)*energ[l]/dens[l];  // temperature in code units
+       temp = (ADIABATICINDEX-1.0)*energ[l]*pow(dens[l],-1.0);  // temperature in code units
        phys_temp = temp * unit_temperature;
        /* Convert 3D volume density into g.cm^-3 */
-       H = sqrt(temp * Rmed[i]*Rmed[i]*Rmed[i]);
-       rho3D = dens[l]/sqrt(2*M_PI)/H;  // 3D density = sigma / sqrt(2*pi) H, 
+       roversigma = Rmed[i] / dens[l];
+       buf = ADIABATICINDEX*(ADIABATICINDEX-1.0)*energ[l]*pow(roversigma,3.);
+       rho3D = 0.5*pow(buf,-0.5);  // 3D density = sigma / 2H, in code units
        phys_dens = rho3D * unit_mass * pow(unit_length, -3.);  // in kg.m^(-3)
        phys_dens *= 1e-3;  // in g.cm^(-3)
        opacity[l] = opLBL94 (phys_dens, phys_temp);
@@ -995,7 +1000,7 @@ void ComputeOpacities (Rho, Energy)
        /* We convert opacities them in m^2 / kg, before translating
          the result into code units */
        opacity[l] *= (0.1 * pow(unit_length,-2.0) * pow(unit_mass,1.0));
-       opacity[l] *= ZMETAL; 
+       opacity[l] *= ZMETAL; //Sareh addded to test
      }
    }
 }
@@ -1120,14 +1125,14 @@ void ComputeThermalCooling (Rho, Energy)
   for (i = 0; i < nr; i++) {
     for (j = 0; j < ns; j++) {
       l = i*ns + j;
-      tau = 0.5* opacity[l]*dens[l] / sqrt(2*M_PI); 
+      tau = 0.5*opacity[l]*dens[l]; 
       tau_eff = 0.375*tau + 0.25*sqrt(3.0) + 0.25/(tau+1e-20); // effective optical depth
-      temp = (ADIABATICINDEX-1.0)*energ[l]/dens[l];  // temperature
+      temp = (ADIABATICINDEX-1.0)*energ[l]*pow(dens[l],-1.0);  // temperature
       if (!StellarIrradiation){
-       thercool[l] = 2.0*sigma_SB*pow(temp,4.)/tau_eff;
-      } else {
+       thercool[l] = 2.0*sigma_SB*pow(temp,4.)*pow(tau_eff,-1.0);
+      }else {
        temp_irr = (160/unit_temperature) * pow(Rmed[i]*unit_length/1.49598e11,-0.5); // assuming Tirr = 160K x (R/1AU)^-1/2
-       thercool[l] = 2.0*sigma_SB*(pow(temp,4.)-pow(temp_irr,4.))/tau_eff;
+       thercool[l] = 2.0*sigma_SB*(pow(temp,4.)-pow(temp_irr,4.))*pow(tau_eff,-1.0);
       }
     }
   }
@@ -1215,6 +1220,12 @@ void ComputeRadiavtiveDiffusion (Rho, Energy)
         lambda = 10./sqrt(10.*Rl+9+sqrt(180.*Rl+81.));
       }
       Kjm = -lambda*16.*sigma_SB*2*cs[ljm]*pow(temp[ljm],3) / Omega / (dens[ljm]*opacity[ljm]);
+/*      laplacienT = InvDiffRsup[i]*InvRmed[i]*(Rsup[i]*InvDiffRmed[i]*(temp[lip]-temp[l]) - \
+                                        Rinf[i]*InvDiffRmed[i]*(temp[l]-temp[lim]))+ \
+            InvRmed[i]*InvRmed[i]*invdphi*invdphi*(temp[ljp]+temp[ljm]-2.0*temp[l]);
+      raddiff[l] = Kl* laplacienT;
+      raddiff[l] += InvDiffRmed[i]*InvDiffRmed[i]*(Kip-Kl)*(temp[lip]-temp[l]) + \
+                 InvRmed[i]*InvRmed[i]*invdphi*invdphi*(Kjp-Kl)*(temp[ljp]-temp[l]);*/
       raddiff[l] = InvRmed[i]*InvDiffRsup[i]*(Rsup[i]*0.5*(Kl+Kip)*(temp[lip]-temp[l])*InvDiffRmed[i+1]\
 -Rsup[i-1]*0.5*(Kl+Kim)*(temp[l]-temp[lim])*InvDiffRmed[i]);
       raddiff[l] += InvRmed[i]*InvRmed[i]*invdphi*invdphi*(0.5*(Kjp+Kl)*(temp[ljp]-temp[l])\
@@ -1272,6 +1283,7 @@ void ComputeThermalDiffusion (Rho, Energy)
                                         ) +                     \
        InvRmed[i]*InvRmed[i]*invdphi*invdphi*(tempint[ljp]+tempint[ljm]-2.0*tempint[l]);
       therheat[l] = energy[l]*DIFFUSIVITY*laplacien;
+      //therheat[l] = dens[l]*DIFFUSIVITY*laplacien;
     }
   }
 }
@@ -1279,25 +1291,32 @@ void ComputeThermalDiffusion (Rho, Energy)
 void ComputeStarIrrad (Rho)
      PolarGrid *Rho;
 {
-  int i, j, l, nr, ns;
+  int i, j, l, nr, ns, lip;
   real *dens, *stirrad, *opacity, *soundspeed;
-  real h, tau, taueff, epsilon=0.5, Lstar;
+  real h, tau, taueff, qirrad, epsilon, hip, dlogHdlogr;
   dens = Rho->Field;
   stirrad = StarIrradiation->Field;
   opacity = Opacity->Field;
   soundspeed = SoundSpeed ->Field;
   nr = Rho->Nrad;
   ns = Rho->Nsec; 
-  Lstar = 4*M_PI*sigma_SB*(tstar*tstar*tstar*tstar)*(rstar*rstar); 
   for (i = 0; i < nr; i++) {
   /* a factor 2 is multiplied to count for both sides of the disc*/
+     qirrad = sigma_SB * (tstar*tstar*tstar*tstar) * (rstar*rstar/Rmed[i]/Rmed[i]);
      for (j = 0; j < ns; j++) {
        l = j+i*ns;
-       h = soundspeed[l] * sqrt(Rmed[i]) / sqrt(ADIABATICINDEX);
-       tau = 0.5 * opacity[l]*dens[l]/sqrt(2*M_PI);
+       lip = l+ns;
+       h = soundspeed[l] * sqrt(Rmed[i]);
+/*       if (i < nr-1){
+         hip = soundspeed[lip] * sqrt(Rmed[i+1]);
+         dlogHdlogr =  1+ (log(hip)-log(h))/(log(Rmed[i+1])-log(Rmed[i]));
+       } else {*/
+         dlogHdlogr = 9./7;
+//       } 
+       tau = 0.5*opacity[l]*dens[l];
        taueff = 3./8*tau+sqrt(3.)/4.+1./(4*tau+1e-20);
        /* the qirrad is calculated considering grazing angle as in Pierens2016 */
-       stirrad[l] = 2.*(Lstar/4/M_PI/Rmed[i]/Rmed[i]) * (1-epsilon) * h * 2./7. /taueff; //factor of 2 is because of disc illumination in both sides
+       stirrad[l] = 2* (qirrad*(1-epsilon) * h * (dlogHdlogr-1))/taueff; //factor of 2 is because of disc illumination in both sides
      }
    }
 }
@@ -1331,7 +1350,8 @@ void ComputeSoundSpeed (Rho, Energy, sys)
       if (!EnergyEquation) {
        if (!ModifiedSoundSpeed) {
          cs[l] = AspectRatio(Rmed[i])*sqrt(G*1.0/Rmed[i])*pow(Rmed[i], FLARINGINDEX); 
-       } else {
+       }
+       else {
          /* NEW: sound speed expression in Peplinski et al. 08 and in
             Lin & Papaloizou 2011/12. We slowly increase the sound
             speed from its locally isothermal expression (csiso(r)) to
@@ -1366,9 +1386,9 @@ void ComputeSoundSpeed (Rho, Energy, sys)
          cstarget /= (NbPlanets+0.0);
          cs[l] = csiso + (cstarget-csiso)*MassTaper;
        }
-      } else {
+      }
+      else
        cs[l] = sqrt( ADIABATICINDEX*(ADIABATICINDEX-1.0)*energ[l]/dens[l] );
-     }
     }
   }
 }
@@ -1454,9 +1474,9 @@ real CircumPlanetaryMass (Rho, sys)
   if (FakeSequential) {
      if (CPU_Rank < CPU_Number-1)
        MPI_Send (&mdcplocal, 1, MPI_DOUBLE, CPU_Rank+1, 0, MPI_COMM_WORLD);
-  } else {
-    MPI_Allreduce (&mdcplocal, &mdcptotal, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
   }
+  else
+    MPI_Allreduce (&mdcplocal, &mdcptotal, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
   if (FakeSequential) {
     MPI_Bcast (&mdcplocal, 1, MPI_DOUBLE, CPU_Number-1, MPI_COMM_WORLD);
     mdcptotal = mdcplocal;

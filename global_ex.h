@@ -40,7 +40,7 @@ extern real GLOBAL_ImposedAlpha[MAX1D];
 extern real OmegaFrame, PhysicalTime, PhysicalTimeInitial, FinalTime;
 extern int TimeStep,BigTimeStep;
 extern real HillRadius, mdcp, mdcp0, exces_mdcp;
-extern real axics[MAX1D];  // Azimuthally avaraged sound speed
+extern real GLOBAL_bufarray[MAX1D];  // Azimuthally avaraged sound speed
 extern real axidens[MAX1D];  // Azimuthally avaraged surface density
 extern real axitemp[MAX1D];  // Azimuthally avaraged temperature
 extern real opaaxi[MAX1D];  // Azimuthally avaraged opacity
@@ -50,7 +50,7 @@ extern boolean CentrifugalBalance, ExcludeHill, SloppyCFL;
 extern MPI_Status fargostat;
 extern PolarGrid *CellAbscissa, *CellOrdinate;
 extern PolarGrid *RhoStar, *RhoInt, *Potential, *TurbPotential, *Pressure, *SoundSpeed, *Temperature;
-extern PolarGrid *DivergenceVelocity, *TAURR, *TAUPP, *TAURP, *ViscHeat, *ThermHeat, *ThermCool, *Opacity, *ArtViscHeat, *pdvEnergy;
+extern PolarGrid *DivergenceVelocity, *TAURR, *TAUPP, *TAURP, *ViscHeat, *ThermHeat, *ThermCool, *Opacity;
 extern PolarGrid *RadDiffusion, *StarIrradiation;
 extern PolarGrid *gr, *gtheta;
 extern PolarGrid *Test;
