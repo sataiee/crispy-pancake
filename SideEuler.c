@@ -8,7 +8,7 @@ manipulate PolarGrid 's or initialize the forces evaluation.
 
 #include "mp.h"
 
-extern boolean OpenInner, KNOpen, NonReflecting, OuterSourceMass, Evanescent;
+extern boolean OpenInner, KNOpen, NonReflecting, OuterSourceMass, Evanescent, Alexboundary;
 extern boolean SelfGravity, SGZeroMode, EnergyEquation, MixedBC;
 extern Pair DiskOnPrimaryAcceleration;
 extern int dimfxy;
@@ -32,9 +32,9 @@ real GasTotalMass (array)
   if (FakeSequential) {
     if (CPU_Rank < CPU_Number-1)
       MPI_Send (&total, 1, MPI_DOUBLE, CPU_Rank+1, 0, MPI_COMM_WORLD);
-  }
-  else
+  } else {
     MPI_Allreduce (&total, &fulltotal, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  }
   if (FakeSequential) {
     MPI_Bcast (&total, 1, MPI_DOUBLE, CPU_Number-1, MPI_COMM_WORLD);
     fulltotal = total;
@@ -210,15 +210,15 @@ void InitComputeAccel ()
   }
 }
   
-Pair ComputeAccel (force, Rho, x, y, rsmoothing, mass, psys, index, nplanet)
+Pair ComputeAccel (force, Rho, x, y, mass, psys, index)
      Force *force;
      PolarGrid *Rho;
-     real x, y, rsmoothing, mass;
+     real x, y, mass;
      PlanetarySystem *psys;
-     int index, nplanet;
+     int index;
 {
   Pair acceleration;  
-  ComputeForce (force, Rho, x, y, rsmoothing, mass, dimfxy, psys, index, nplanet);
+  ComputeForce (force, Rho, x, y, mass, dimfxy, psys, index);
   if (ExcludeHill) {
     acceleration.x = force->fx_ex_inner+force->fx_ex_outer;
     acceleration.y = force->fy_ex_inner+force->fy_ex_outer;
@@ -273,7 +273,7 @@ Pair AccelFromFormula (force, Rho, x, y, smoothing, mass, sys, index, flag)
         prs_exit(1);
     }        
     if (EnergyEquation)
-        h = GLOBAL_bufarray[ip]/omega/r;
+        h = axics[ip]/omega/r/sqrt(ADIABATICINDEX);
     else
         h = AspectRatio(r)* pow(r,FLARINGINDEX);
     /* torque scaling coeeficients, see section 3 and 5.6 of the paper */
@@ -289,7 +289,7 @@ Pair AccelFromFormula (force, Rho, x, y, smoothing, mass, sys, index, flag)
     }
     LinearInterpole(lnf, lnr , coeff, n1, n2);
     betaf = -coeff[0];              
-    K = sqrt(r) /(2 * PI * FViscosity(r)) ;
+    K = sqrt(r) /(2 * PI * FViscosity(r, axics[i], axidens[i])) ;
     zeta = betaf - (ADIABATICINDEX-1)*alphaf;
 
     if (EnergyEquation){
@@ -422,10 +422,7 @@ int ReturnIndex(r)
 real Ffunc(p)
     real p;
 {
-    real rfour=0, rone=0, rk, foo1, foo2;
-    bessik(p, 4./3, &rfour, &rk, &foo1, &foo2);
-    bessik(p, 1./3, &rone, &rk, &foo1, &foo2);
-    return 8*rfour/(3*p*rone+9./2*p*p*rfour);
+  return 1./(1+p*p/1.3/1.3);
 }
 
 real Gfunc(p)

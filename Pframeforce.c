@@ -75,23 +75,23 @@ void FillForcesArrays (sys, Rho, Energy, Vtheta, dt)
     for (i = 0; i < nr; i++) {
       InvDistance = 1.0/Rmed[i];
       for (j = 0; j < ns; j++) {
-	l = j+i*ns;
-	angle = azimuth[j];
-	x = Rmed[i]*cos(angle);
-	y = Rmed[i]*sin(angle);
-	distance = (x-xplanet)*(x-xplanet)+(y-yplanet)*(y-yplanet);
-	distancesmooth = sqrt(distance+smooth);
-    /* If the planet's mass is smaller than the critical mass and the run 
-     * is 1D, the planet's potential is not applied on the disc.
-     * Otherwise, the rings close to the planet, feel the planet so strong and 
-     * therefore, the density close to the planet increased greatly. */
-     if (!OneDRun) {
-        pot = -G*mplanet/distancesmooth; /* Direct term from planet */
-        if (Indirect_Term == YES)
+        l = j+i*ns;
+        angle = azimuth[j];
+        x = Rmed[i]*cos(angle);
+        y = Rmed[i]*sin(angle);
+        distance = (x-xplanet)*(x-xplanet)+(y-yplanet)*(y-yplanet);
+        distancesmooth = sqrt(distance+smooth);
+        /* If the planet's mass is smaller than the critical mass and the run 
+        * is 1D, the planet's potential is not applied on the disc.
+        * Otherwise, the rings close to the planet, feel the planet so strong and 
+        * therefore, the density close to the planet increased greatly. */
+        if (!OneDRun) {
+          pot = -G*mplanet/distancesmooth; /* Direct term from planet */
+          if (Indirect_Term == YES)
             pot += G*mplanet*InvPlanetDistance3*(x*xplanet+y*yplanet); /* Indirect term from planet  */
-    }
-    Pot[l] += pot;
-    }
+        }
+        Pot[l] += pot;
+      }
     }
   }
   /* -- Gravitational potential from star on gas -- */
@@ -106,7 +106,7 @@ void FillForcesArrays (sys, Rho, Energy, Vtheta, dt)
       pot = -G*1.0*InvDistance;  /* Direct term from star */
       /* case where azimuthal extent equals 2pi */
       if ( fabs(PMAX-PMIN-2.*M_PI) < 0.01 )
-	pot -= IndirectTerm.x*x + IndirectTerm.y*y; /* Indirect term from star */
+        pot -= IndirectTerm.x*x + IndirectTerm.y*y; /* Indirect term from star */
       Pot[l] += pot;	
     }
   }
@@ -124,7 +124,8 @@ void AdvanceSystemFromDisk (force, Rho, Energy, sys, dt)
 {
   int NbPlanets, k, ip;
   Pair gamma, accel;
-  real x, y, r, m, smoothing;
+  real x, y, r, m, smoothing, omega, taumig, vdotr, vx, vy;
+  extern boolean ForcedCircularTemp;
   NbPlanets = sys->nb;
   for (k = 0; k < NbPlanets; k++) {
     if (sys->FeelDisk[k] == YES) {
@@ -137,22 +138,52 @@ void AdvanceSystemFromDisk (force, Rho, Energy, sys, dt)
 	       smoothing = r*pow(m/3.,1./3.)*ROCHESMOOTHING;
       else
 	       smoothing = compute_smoothing (r);
-    if (sys->mass[k] > 0.0){
-      if (sys->TorqueFlag[k] == YES){
-         if (CPU_Master){
-          accel = AccelFromFormula (force, Rho, x, y, smoothing, m, sys, k,1);             
-          sys->vx[k] += dt * accel.x;
-          sys->vy[k] += dt * accel.y;
-          }
-          MPI_Barrier (MPI_COMM_WORLD);
+      if ((*IMPOSEDGAMMA == 'y') || (*IMPOSEDGAMMA == 'Y')) {
+        vx = sys->vx[k];
+        vy = sys->vy[k];
+        omega = sqrt((1.+m)/r/r/r);
+        taumig = - r*r * omega / GAMMAVALUE;  //Note that I remove the eccentriciy damping part
+        vdotr = vx*x + vy*y;
+        gamma.x =  -1. * vx/taumig;
+        gamma.y =  -1. * vy/taumig;
+        sys->vx[k] += dt * gamma.x;
+        sys->vy[k] += dt * gamma.y;
       } else {
-         gamma = ComputeAccel (force, Rho, x, y, smoothing, m, sys, 2, k);
-         sys->vx[k] += dt * gamma.x;
-         sys->vy[k] += dt * gamma.y;
+        if (ForcedCircularTemp){
+          if (PhysicalTime >= RELEASEDATE) {
+            if (sys->mass[k] > 0.0){
+              if (sys->TorqueFlag[k] == YES){
+                accel = AccelFromFormula (force, x, y, smoothing, m, sys, k,1);             
+                sys->vx[k] += dt * accel.x;
+                sys->vy[k] += dt * accel.y;
+              } else {
+                gamma = ComputeAccel (force, Rho, x, y, smoothing, m, sys, k);
+                sys->vx[k] += dt * gamma.x;
+                sys->vy[k] += dt * gamma.y;
+              }
+              sys->vx[k] += dt * IndirectTerm.x;
+              sys->vy[k] += dt * IndirectTerm.y;
+            }
+          }
+        } else {
+          if (sys->mass[k] > 0.0) {
+            if (sys->TorqueFlag[k] == YES){
+              if (CPU_Master){
+                accel = AccelFromFormula (force, Rho, x, y, smoothing, m, sys, k,1);             
+                sys->vx[k] += dt * accel.x;
+                sys->vy[k] += dt * accel.y;
+              }
+              MPI_Barrier (MPI_COMM_WORLD);
+            } else {
+              gamma = ComputeAccel (force, Rho, x, y, m, sys, 2);
+              sys->vx[k] += dt * gamma.x;
+              sys->vy[k] += dt * gamma.y;
+            }
+          }
+          sys->vx[k] += dt * IndirectTerm.x;
+          sys->vy[k] += dt * IndirectTerm.y;
+        }
       }
-    }
-      sys->vx[k] += dt * IndirectTerm.x;
-      sys->vy[k] += dt * IndirectTerm.y;
     }
   }
 }
@@ -161,18 +192,13 @@ void AdvanceSystemRK5 (sys, dt)
      PlanetarySystem *sys;
      real dt;
 {
-  extern boolean ForcedCircular, ForcedInnerCircular;
+  extern boolean ForcedCircular, ForcedInnerCircular, ForcedCircularTemp;
   int i, n, myimin;
   boolean *feelothers;
   real dtheta, omega, rdot, x, y, r, v, new_r, vx, vy, theta, denom;
   n = sys->nb;
-  //if (ForcedInnerCircular)
-  //  myimin = 1;
-  //else
-  //  myimin = 0; // default case
   if (!ForcedCircular) {
     for (i = 0; i < n; i++) {
-      //printf("myimin = %d and i = %d\n",myimin, i);
       q0[i] = sys->x[i];
       q0[i+n] = sys->y[i];
       q0[i+2*n] = sys->vx[i];
@@ -182,83 +208,109 @@ void AdvanceSystemRK5 (sys, dt)
     feelothers = sys->FeelOthers;
     RungeKunta (q0, dt, PlanetMasses, q1, n, feelothers);
   }
-  /* Default case (see below) */
-  if (!ForcedInnerCircular) {
-    for (i = 1-(PhysicalTime >= RELEASEDATE); i < sys->nb; i++) {
-      /* Default case: planets position and velocity updated after 
-	 Runge Kutta step */
-      if (!ForcedCircular) {
-	sys->x[i] = q1[i];
-	sys->y[i] = q1[i+n];
-	sys->vx[i] = q1[i+2*n];
-	sys->vy[i] = q1[i+3*n];
-      } else {
-	/* Case where planets are held on a fixed circular orbit with 
-	   initial angular frequency omega */
-	x = sys->x[i];
-	y = sys->y[i];
-	theta = atan2(y,x);
-	vx = sys->vx[i];
-	vy = sys->vy[i];
-	r = sqrt(x*x + y*y);
-	v = sqrt(vx*vx + vy*vy);
-	omega = (-y*vx + x*vy)/r/r;
-	dtheta = omega*dt;
-	sys->x[i]  = r*cos(theta+dtheta);
-	sys->y[i]  = r*sin(theta+dtheta);
-	sys->vx[i] = -v*sin(theta+dtheta);
-	sys->vy[i] =  v*cos(theta+dtheta);
-      }
-    }
+  /* Adrien project: planets are hold in circular orbits until RELEASEDATE */
+  if (ForcedCircularTemp){
+    for (i = 0; i < sys->nb; i++){
+	    if (PhysicalTime < RELEASEDATE) {
+				x = sys->x[i];
+				y = sys->y[i];
+				theta = atan2(y,x);
+				vx = sys->vx[i];
+				vy = sys->vy[i];
+				r = sqrt(x*x + y*y);
+				v = sqrt(vx*vx + vy*vy);
+				omega = (-y*vx + x*vy)/r/r;
+				dtheta = omega*dt;
+				sys->x[i]  = r*cos(theta+dtheta);
+				sys->y[i]  = r*sin(theta+dtheta);
+				sys->vx[i] = -v*sin(theta+dtheta);
+				sys->vy[i] =  v*cos(theta+dtheta);
+ 	    } else { 
+				sys->x[i] = q1[i];
+				sys->y[i] = q1[i+n];
+				sys->vx[i] = q1[i+2*n];
+				sys->vy[i] = q1[i+3*n];
+ 	    }
+    } 
   } else {
-    /* New (july 2012): particular case where inner planet held on a fixed 
-       circular orbit */
-    for (i = 0; i < n; i++) {
-      if (i == 0) {  // inner planet (i=0) fixed -> copy-paste of above
-	x = sys->x[i];
-	y = sys->y[i];
-	theta = atan2(y,x);
-	vx = sys->vx[i];
-	vy = sys->vy[i];
-	r = sqrt(x*x + y*y);
-	v = sqrt(vx*vx + vy*vy);
-	omega = (-y*vx + x*vy)/r/r;
-	dtheta = omega*dt;
-	sys->x[i]  = r*cos(theta+dtheta);
-	sys->y[i]  = r*sin(theta+dtheta);
-	sys->vx[i] = -v*sin(theta+dtheta);
-	sys->vy[i] =  v*cos(theta+dtheta);
-      } else {  // all planets except that indexed with i=0
-	sys->x[i] = q1[i];
-	sys->y[i] = q1[i+n];
-	sys->vx[i] = q1[i+2*n];
-	sys->vy[i] = q1[i+3*n];
+    /* Default case (see below) */
+    if (!ForcedInnerCircular) {
+      for (i = 1-(PhysicalTime >= RELEASEDATE); i < sys->nb; i++) {
+        /* Default case: planets position and velocity updated after 
+        Runge Kutta step */
+        if (!ForcedCircular) {
+          sys->x[i] = q1[i];
+          sys->y[i] = q1[i+n];
+          sys->vx[i] = q1[i+2*n];
+          sys->vy[i] = q1[i+3*n];
+        } else {
+          /* Case where planets are held on a fixed circular orbit with 
+          initial angular frequency omega */
+          x = sys->x[i];
+          y = sys->y[i];
+          theta = atan2(y,x);
+          vx = sys->vx[i];
+          vy = sys->vy[i];
+          r = sqrt(x*x + y*y);
+          v = sqrt(vx*vx + vy*vy);
+          omega = (-y*vx + x*vy)/r/r;
+          dtheta = omega*dt;
+          sys->x[i]  = r*cos(theta+dtheta);
+          sys->y[i]  = r*sin(theta+dtheta);
+          sys->vx[i] = -v*sin(theta+dtheta);
+          sys->vy[i] =  v*cos(theta+dtheta);
+        } 
+      }
+    } else {
+      /* New (july 2012): particular case where inner planet held on a fixed 
+      circular orbit */
+      for (i = 0; i < n; i++) {
+        if (i == 0) {  // inner planet (i=0) fixed -> copy-paste of above
+          x = sys->x[i];
+          y = sys->y[i];
+          theta = atan2(y,x);
+          vx = sys->vx[i];
+          vy = sys->vy[i];
+          r = sqrt(x*x + y*y);
+          v = sqrt(vx*vx + vy*vy);
+          omega = (-y*vx + x*vy)/r/r;
+          dtheta = omega*dt;
+          sys->x[i]  = r*cos(theta+dtheta);
+          sys->y[i]  = r*sin(theta+dtheta);
+          sys->vx[i] = -v*sin(theta+dtheta);
+          sys->vy[i] =  v*cos(theta+dtheta);
+        } else {  // all planets except that indexed with i=0
+          sys->x[i] = q1[i];
+          sys->y[i] = q1[i+n];
+          sys->vx[i] = q1[i+2*n];
+          sys->vy[i] = q1[i+3*n];
+        }
       }
     }
-  }
-  /* Case where the innermost planet (with index 0) is drifted
-     manually with a prescribed migration rate tuned by RELEASERADIUS 
-     and RELEASETIME in .par file */
-  if (PhysicalTime < RELEASEDATE) {
-    x = sys->x[0];
-    y = sys->y[0];
-    r = sqrt(x*x+y*y);
-    theta = atan2(y,x);
-    rdot = (RELEASERADIUS-r)/(RELEASEDATE-PhysicalTime);
-    omega = sqrt((1.+sys->mass[0])/r/r/r);
-    new_r = r + rdot*dt;
-    denom = r-new_r;
-    if (denom != 0.0) {
-      dtheta = 2.*dt*r*omega/denom*(sqrt(r/new_r)-1.);
-    } else {
-      dtheta = omega*dt;
-    }
-    vx = rdot;
-    vy = new_r*sqrt((1.+sys->mass[0])/new_r/new_r/new_r);
-    sys->x[0] = new_r*cos(dtheta+theta);
-    sys->y[0] = new_r*sin(dtheta+theta);
-    sys->vx[0]= vx*cos(dtheta+theta) - vy*sin(dtheta+theta); 
-    sys->vy[0]= vx*sin(dtheta+theta) + vy*cos(dtheta+theta); 
+    /* Case where the innermost planet (with index 0) is drifted
+    manually with a prescribed migration rate tuned by RELEASERADIUS 
+    and RELEASETIME in .par file */
+    if (PhysicalTime < RELEASEDATE) {
+      x = sys->x[0];
+      y = sys->y[0];
+      r = sqrt(x*x+y*y);
+      theta = atan2(y,x);
+      rdot = (RELEASERADIUS-r)/(RELEASEDATE-PhysicalTime);
+      omega = sqrt((1.+sys->mass[0])/r/r/r);
+      new_r = r + rdot*dt;
+      denom = r-new_r;
+      if (denom != 0.0) {
+        dtheta = 2.*dt*r*omega/denom*(sqrt(r/new_r)-1.);
+      } else {
+        dtheta = omega*dt;
+      }
+      vx = rdot;
+      vy = new_r*sqrt((1.+sys->mass[0])/new_r/new_r/new_r);
+      sys->x[0] = new_r*cos(dtheta+theta);
+      sys->y[0] = new_r*sin(dtheta+theta);
+      sys->vx[0]= vx*cos(dtheta+theta) - vy*sin(dtheta+theta); 
+      sys->vy[0]= vx*sin(dtheta+theta) + vy*cos(dtheta+theta);
+    }     
   }
 }
 
@@ -288,9 +340,8 @@ real ConstructSequence (u, v, n)
   real lapl=0.0;
   for (i = 1; i < n; i++)
     u[i] = 2.0*v[i]-u[i-1];
-  for (i = 1; i < n-1; i++) {
+  for (i = 1; i < n-1; i++)
     lapl += fabs(u[i+1]+u[i-1]-2.0*u[i]);
-  }
   return lapl;
 }
 
@@ -308,16 +359,16 @@ void InitGasDensity (Rho)
     FillSigma ();
     for (i = 0; i < nr; i++) {
       for (j = 0; j < ns; j++) {
-	l = j+i*ns;
-	dens[l] = SigmaMed[i];
-	/* No random noise is added by default to the initial density
-	   and velocity profiles. If AddNoise set to yes, white noise
-	   added to the initial density field with arbitrary 1d-3
-	   relative amplitude */
-		if (AddNoise) {
-		  randomnb = 2.0*drand48()-1.0;
-		  dens[l] += 1e-3*SigmaMed[i]*randomnb;
-		}
+        l = j+i*ns;
+        dens[l] = SigmaMed[i];
+        /* No random noise is added by default to the initial density
+        and velocity profiles. If AddNoise set to yes, white noise
+        added to the initial density field with arbitrary 1d-3
+        relative amplitude */
+        if (AddNoise) {
+          randomnb = 2.0*drand48()-1.0;
+          dens[l] += 1e-3*SigmaMed[i]*randomnb;
+        }
       }
     }
   } else {
@@ -339,9 +390,8 @@ void InitImposedDensity (density)
   dens = density->Field;
   nr = density->Nrad;
   ns = density->Nsec;
-  if (DENSFILE == NULL) {
+  if (DENSFILE == NULL)
     erreur ("ERROR: I could not read the file axidens.dat containing the imposed density profile. Please check and run again\n");
-  }
   globaldens = (real*) malloc(sizeof(real)*ns*GLOBALNRAD);
   for (i = 0; i < GLOBALNRAD; i++) {
     fscanf (DENSFILE, "%lf %lf", &foo, &value);
@@ -413,6 +463,7 @@ void InitGasVelocities (Vr, Vt, Rho)
   real *vr, *vt, *pres, *cs, *dens, mdot;
   real  r, omega, ri, moy;
   real viscosity, t1, t2, r1, r2;
+  real axipres[GLOBALNRAD];
   vr  = Vr->Field;
   vt  = Vt->Field;
   nr  = Vt->Nrad;
@@ -421,36 +472,35 @@ void InitGasVelocities (Vr, Vt, Rho)
   pres = Pressure->Field;  /* Pressure is already initialized: cf initeuler in SourceEuler.c ... */
   dens = Rho->Field;
   if (MdotHartmann){
-      mdot = 1e-8 * pow(THARTMANN/1e6, -1.4); //Hartmann1998, modified to give a smaller Mdot because our disc is evolved
-      mdot *= -(1.9891e30/31556926.0 / unit_mass*unit_time); //convert to code unit
+    mdot = 1e-8 * pow(THARTMANN/1e6, -1.4); //Hartmann1998, modified to give a smaller Mdot because our disc is evolved
+    mdot *= -(1.9891e30/31556926.0 / unit_mass*unit_time); //convert to code unit
   } else {
-      mdot  = -MDOTINIT;
+    mdot  = -MDOTINIT;
   }
   /* --------- */
   // Initialization of azimutal velocity with exact centrifugal balance
   /* --------- */
   if ( CentrifugalBalance ) {
     /* vt_int \equiv rOmega = grad(P)/sigma +  \partial(phi)/\partial(r)  -  acc_sg_radial */
-    mpi_make1Dprofile (pres, GLOBAL_bufarray);
+    mpi_make1Dprofile (pres, axipres);
     /* global axisymmetric pressure field, known by all cpus*/
     for (i = 1; i < GLOBALNRAD; i++) {
       vt_int[i] = ( GLOBAL_bufarray[i] - GLOBAL_bufarray[i-1] ) /	\
-	(.5*(Sigma(GlobalRmed[i])+Sigma(GlobalRmed[i-1])))/(GlobalRmed[i]-GlobalRmed[i-1]) + \
-	G*(1.0/GlobalRmed[i-1]-1.0/GlobalRmed[i])/(GlobalRmed[i]-GlobalRmed[i-1]);
+        (.5*(Sigma(GlobalRmed[i])+Sigma(GlobalRmed[i-1])))/(GlobalRmed[i]-GlobalRmed[i-1]) + \
+        G*(1.0/GlobalRmed[i-1]-1.0/GlobalRmed[i])/(GlobalRmed[i]-GlobalRmed[i-1]);
     }
     /* Case of a disk with self-gravity */
     if ( SelfGravity ) { // Better test with CL rigid!
       if ( !SGZeroMode )
-	  mpi_make1Dprofile (SG_Accr, GLOBAL_AxiSGAccr);
-      	else
-	  GLOBAL_AxiSGAccr = SG_Accr;
+        mpi_make1Dprofile (SG_Accr, GLOBAL_AxiSGAccr);
+      else
+        GLOBAL_AxiSGAccr = SG_Accr;
       for (i = 1; i < GLOBALNRAD; i++)
-	vt_int[i] -= ( (Radii[i] - GlobalRmed[i-1])*GLOBAL_AxiSGAccr[i] + \
-		       (GlobalRmed[i] - Radii[i])*GLOBAL_AxiSGAccr[i-1] ) / (GlobalRmed[i]-GlobalRmed[i-1]);
+        vt_int[i] -= ( (Radii[i] - GlobalRmed[i-1])*GLOBAL_AxiSGAccr[i] + \
+          (GlobalRmed[i] - Radii[i])*GLOBAL_AxiSGAccr[i-1] ) / (GlobalRmed[i]-GlobalRmed[i-1]);
     }
     for (i = 1; i < GLOBALNRAD; i++)
       vt_int[i] = sqrt(vt_int[i]*Radii[i])-Radii[i]*OmegaFrame;
-    
     t1 = vt_cent[0] = vt_int[1]+.75*(vt_int[1]-vt_int[2]);
     r1 = ConstructSequence (vt_cent, vt_int, GLOBALNRAD);
     vt_cent[0] += .25*(vt_int[1]-vt_int[2]);
@@ -466,59 +516,53 @@ void InitGasVelocities (Vr, Vt, Rho)
   if (SelfGravity && !CentrifugalBalance)
     init_azimutalvelocity_withSG (Vt);
   /* --------- */
-  if (ViscosityAlpha)
-    mpi_make1Dprofile (cs, GLOBAL_bufarray);
-
   for (i = 0; i <= nr; i++) {
     if (i == nr) {
       r = Rmed[nr-1];
       ri= Rinf[nr-1];
-    }
-    else {
+    } else {
       r = Rmed[i];
       ri= Rinf[i];
     }
-    if (ViscosityAlpha || (VISCOSITY != 0.0) )
-      viscosity = FViscosity (r);
     if (!ViscosityAlpha && (VISCOSITY == 0.0) )
       viscosity = 0.0;
     for (j = 0; j < ns; j++) {
       l = j+i*ns;
+      if (ViscosityAlpha || (VISCOSITY != 0.0) )
+        viscosity = FViscosity (r, cs[l], dens[l]);      
       /* --------- */
       if (!SelfGravity) {
-	omega = sqrt(G*1.0/r/r/r);
-	vt[l] = omega*r*sqrt(1.0-pow(ASPECTRATIO,2.0)*			\
-			     pow(r,2.0*FLARINGINDEX)*			\
-			     (1.+SIGMASLOPE-2.0*FLARINGINDEX) );
+        omega = sqrt(G*1.0/r/r/r);
+        vt[l] = omega*r*sqrt(1.0-pow(ASPECTRATIO,2.0)*			\
+          pow(r,2.0*FLARINGINDEX)*			\
+          (1.+SIGMASLOPE-2.0*FLARINGINDEX) );
       }
       /* --------- */
       vt[l] -= OmegaFrame*r;
       if (CentrifugalBalance)
-	vt[l] = vt_cent[i+IMIN];
-      if (i == nr)
-	vr[l] = 0.0;
-      else {
-	vr[l] = IMPOSEDDISKDRIFT*SIGMA0/SigmaInf[i]/ri;
+        vt[l] = vt_cent[i+IMIN];
+      if (i == nr) {
+        vr[l] = 0.0;
+      } else {
+        vr[l] = IMPOSEDDISKDRIFT*SIGMA0/SigmaInf[i]/ri;
         if (AccBoundary){ 
-           vr[l] -= 3.0*viscosity/r/2.;
+          vr[l] -= 3.0*viscosity/r/2.;
         } else {
           if (ViscosityAlpha) 
-	    vr[l] -= 3.0*viscosity/r*(-SIGMASLOPE+2.0*FLARINGINDEX+1.0);
+            vr[l] -= 3.0*viscosity/r*(-SIGMASLOPE+2.0*FLARINGINDEX+1.0);
           else 
-	    vr[l] -= 3.0*viscosity/r*(-SIGMASLOPE+.5);
-	}
+            vr[l] -= 3.0*viscosity/r*(-SIGMASLOPE+.5);
+        }
         if (InitEquilibrium)
-           vr[l] = mdot/2/PI/dens[l]/ri;  
+          vr[l] = mdot/2/PI/dens[l]/ri;  
       }
     }
   }
-  //for (j = 0; j < ns; j++)
-    ///vr[j] = vr[j+ns*nr] = 0.0;
   if (InitEquilibrium){
     moy = 0.0;
     for (j = 0; j < ns; j++){
-        vr[j+ns*nr] = mdot/2/PI/dens[j+ns*(nr-1)]/Rsup[nr-1];  
-        moy += vr[j+ns*nr];
+      vr[j+ns*nr] = mdot/2/PI/dens[j+ns*(nr-1)]/Rsup[nr-1];  
+      moy += vr[j+ns*nr];
     }
     VradMed[GLOBALNRAD] = moy/ns;
   }
@@ -526,4 +570,3 @@ void InitGasVelocities (Vr, Vt, Rho)
    mpi_make1Dprofile (vr, VradMed);
    mpi_make1Dprofile (vt, VthetaMed); 
 }
-	

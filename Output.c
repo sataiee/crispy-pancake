@@ -13,8 +13,8 @@ static real     Xplanet, Yplanet, VXplanet, VYplanet, MplanetVirtual;
 extern real     LostMass;
 extern boolean  Write_Density, Write_Velocity, Write_Energy, IsDisk;
 extern boolean  Write_Temperature, Write_DivV, Write_TherHeat, Write_TherCool, Write_ViscHeat, ModifiedSoundSpeed, Write_RadDiff, Write_StarIrrad, Write_Opacity;
-extern boolean  Write_Potential, Write_Test, Write_OneD_Fields;
-extern boolean  Write_gr, Write_gtheta;
+extern boolean  Write_Potential, Write_Test, Write_OneD_Fields, Write_pdv, Write_ArtVisc;
+extern boolean  Write_gr, Write_gtheta, Write_OneD_Viscosity;
 extern boolean  AdvecteLabel;
 
 void EmptyPlanetSystemFile (sys)
@@ -240,14 +240,12 @@ void RestartPlanetarySystem (timestep, sys)
   real *cs, axi[GLOBALNRAD], hplanet;
   char name[256];
   FILE *input;
-  extern boolean FargoPlanete, Write_torquedensity;
-  real *torquedens;
+  extern boolean FargoPlanete;
   n = sys->nb;
   cs = SoundSpeed->Field;
   mpi_make1Dprofile (cs, axi);
   Mswitch = (real *)malloc(n*sizeof(real));
   for (k = 0; k < sys->nb; k++) {
-		torquedens = sys->TorqueDens[k];
   	sprintf (name, "%splanet%d.dat", OUTPUTDIR, k);
 		input = fopen (name, "r");
 		if (input != NULL){
@@ -266,8 +264,6 @@ void RestartPlanetarySystem (timestep, sys)
     } else {
       sys->TorqueFlag[k] = NO;
     }
-    if (Write_torquedensity)
-			ReadTorqueDensity(torquedens, k, timestep);
       /* Below we infer planet's semi-major axis and eccentricity */
       x  = sys->x[k];
       y  = sys->y[k];
@@ -282,56 +278,9 @@ void RestartPlanetarySystem (timestep, sys)
       a = h*h/G/m/(1-e*e);
       sys->a[k]=a;
       sys->e[k]=e;
-      sys->TorqueDens[k] = torquedens;
   }
   free(Mswitch);
 }
-
-void WriteTorqueDensity(sys, noutput)
-     PlanetarySystem *sys;
-     int noutput;
-{
-	int n, i;
-	real *torquedens;
-  FILE    *output;
-  char 		name[256];
-  if (!CPU_Master) return;
-  for (n = 0; n < sys->nb; n++){
-		sprintf (name, "%sTorqueDensity%dOut%d.dat", OUTPUTDIR, n, noutput);
-		output = fopen (name, "w");
-		if (output == NULL) {
-			fprintf (stderr, "Can't write 'TorqueDensity.dat' file. Aborting.\n");
-			prs_exit (1);
-		}
-		torquedens = sys->TorqueDens[n];
-		for (i = 0; i < GLOBALNRAD; i++)
-			fprintf (output, "%.18g\t%.18g\n", GlobalRmed[i], torquedens[i]);
-		fclose (output);
-	}
-}
-
-void ReadTorqueDensity(torquedens, n, noutput)
-		 real * torquedens;
-		 int n, noutput;
-{
-	int i;
-	real value, foo;
-	FILE    *input;
-	char 		name[256];
-	if (!CPU_Master) return;
-	sprintf (name, "%sTorqueDensity%dOut%d.dat", OUTPUTDIR, n, noutput);
-	input = fopen (name, "r");
-	if (input == NULL) {
-		fprintf (stderr, "Can't read 'TorqueDensity.dat' file. Aborting.\n");
-		prs_exit (1);
-	}
-	for (i = 0; i < GLOBALNRAD; i++){
-		fscanf (input, "%lf\t%lf", &foo, &value);
-		torquedens[i] = value;
-	}
-	fclose(input);
-}
-
 
 void WriteDiskPolar(array, number)
      PolarGrid 	*array;
@@ -481,6 +430,28 @@ void Write1DFields(dens, gasvr, Temperature, number, sys)
   free(OneDarray);
 }
 
+void Write1DViscosity(number)
+     int 	number;
+{
+  FILE          *dump;
+  char 		name[256];
+  real 		viscosity;
+  int i;
+  // 1D viscosity -> ascii file ~/viscosity1DXX.dat
+  if (CPU_Master) {
+    sprintf (name, "%s%s1D%d.dat", OUTPUTDIR, "Viscosity", number);
+    dump = fopen(name, "w");
+    if (dump == NULL) {
+      fprintf(stderr, "Unable to open '%s'.\n", name);
+      prs_exit(1);
+    }
+    for ( i = 0; i < GLOBALNRAD; i++ ) {
+      viscosity = FViscosity (GlobalRmed[i], axics[i], axidens[i]);
+      fprintf (dump,"%.18e %.18e\n",GlobalRmed[i],viscosity);
+    }
+    fclose (dump);
+  }
+}
 
 void WriteDim () {	  
   char filename[256];
@@ -523,12 +494,15 @@ void SendOutput (index, dens, gasvr, gasvt, gasenerg, label, sys)
     if (Write_TherCool == YES)  WriteDiskPolar (ThermCool, index);
     if (Write_RadDiff == YES)  WriteDiskPolar (RadDiffusion, index);
     if (Write_StarIrrad == YES) WriteDiskPolar (StarIrradiation, index);
+    if (Write_pdv == YES) WriteDiskPolar (pdvEnergy, index);
+    if (Write_ArtVisc == YES) WriteDiskPolar (ArtViscHeat, index);    
     if (Write_Opacity == YES)   WriteDiskPolar (Opacity, index);
     if (Write_Potential == YES)  WriteDiskPolar (Potential, index);
     if (Write_Test == YES)  WriteDiskPolar (Test, index);
     if (Write_gr == YES)  WriteDiskPolar (gr, index);
     if (Write_gtheta == YES)  WriteDiskPolar (gtheta, index);
     if (Write_OneD_Fields == YES) Write1DFields (dens, gasvr, Temperature, index, sys);
+    if (Write_OneD_Viscosity == YES) Write1DViscosity(index);
     MPI_Barrier (MPI_COMM_WORLD);
     if (Merge && (CPU_Number > 1)) merge (index);
   }

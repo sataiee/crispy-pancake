@@ -23,7 +23,7 @@ accounted for.
 
 #include "mp.h"
 
-extern boolean OpenInner, NonReflecting, Write_torquedensity;
+extern boolean OpenInner, NonReflecting;
 extern Pair DiskOnPrimaryAcceleration;
 
 Force *AllocateForce (dimfxy)
@@ -46,17 +46,16 @@ void FreeForce (force)
   free (force->GlobalForce);
 }
 
-void ComputeForce (force, Rho, x, y, rsmoothing, mass, dimfxy, sys, index, nplanet)
+void ComputeForce (force, Rho, x, y, mass, dimfxy, sys, index)
      Force *force;
      PolarGrid *Rho;
-     real x, y, rsmoothing, mass;
+     real x, y, mass;
      int dimfxy;
      PlanetarySystem *sys;
-     int index, nplanet;
+     int index;
 {
-  int i, j, l, ns, k;
+  int i, j, l, ns, nr, k;
   real xc, yc, cellmass, dx, dy, distance, d2, dist2, rh, a;
-  real ringtorque, ringmass;
   int dimexclude;
   real x0, x1, y0, y1, m0, m1, xb, yb;
   real planet_distance, cutoff;
@@ -66,17 +65,17 @@ void ComputeForce (force, Rho, x, y, rsmoothing, mass, dimfxy, sys, index, nplan
   real *dens, *abs, *ord;
   extern boolean CustTqExc, CutForces;
   real custtqexcdistance, cutoffdist, raddistfrompla;
-  real *torquedens;
+  real rsmoothing, *cs;
   fxi = (real *) prs_malloc (sizeof(real) * dimfxy);
   fxo = (real *) prs_malloc (sizeof(real) * dimfxy);
   fyi = (real *) prs_malloc (sizeof(real) * dimfxy);
   fyo = (real *) prs_malloc (sizeof(real) * dimfxy);
   localforce = (real *) prs_malloc (sizeof(real) * 4 * dimfxy);
   globalforce = force->GlobalForce;
-  if (nplanet != -1)
-    torquedens = sys->TorqueDens[nplanet];
   ns = Rho->Nsec;
+  nr = Rho->Nrad;
   dens = Rho->Field;
+  cs = SoundSpeed->Field;
   abs = CellAbscissa->Field;
   ord = CellOrdinate->Field;
   a = sqrt(x*x+y*y);  // star-planet distance
@@ -113,10 +112,10 @@ void ComputeForce (force, Rho, x, y, rsmoothing, mass, dimfxy, sys, index, nplan
     xb = (m0*x0 + m1*x1) / (m0+m1);
     yb = (m0*y0 + m1*y1) / (m0+m1);
   }
+  if (RocheSmoothing)
+      rsmoothing = a*pow(mass/3.,1./3.)*ROCHESMOOTHING;
 #pragma omp parallel for private(j,hill_cut,cellmass,l,xc,yc,dist2,distance,InvDist3,dx,dy) shared(fxi,fyi,fxhi,fyhi,fxo,fyo,fxho,fyho)
   for (i = Zero_or_active; i < Max_or_active; i++) {
-		ringtorque = 0.0;
-		ringmass   = 0.0;
     for (j = 0; j < ns; j++) {
       l = j+i*ns;
       xc = abs[l];
@@ -126,86 +125,82 @@ void ComputeForce (force, Rho, x, y, rsmoothing, mass, dimfxy, sys, index, nplan
       dy = yc-y;
       d2 = dx*dx+dy*dy;
       planet_distance = sqrt(d2);
+      if (!RocheSmoothing)
+        rsmoothing = cs[l] * pow(xc*xc+yc*yc, 1.5)/sqrt(ADIABATICINDEX) * THICKNESSSMOOTHING ;
       dist2 = d2 + rsmoothing*rsmoothing;
       distance = sqrt(dist2);
       InvDist3 = 1.0/dist2/distance;
       if (sys->Binary[0] == YES) {
-	/* Remember if a binary-star is assumed, exclusion is
-	   effective from the center-of-mass of the binary-star
-	   system, instead of the location of each star:
-	   planet_distance holds here the distance from a cell to the
-	   barycenter of the two satellites */
-	d2 = (xc-xb)*(xc-xb) + (yc-yb)*(yc-yb);
-	planet_distance = sqrt(d2);
+        /* Remember if a binary-star is assumed, exclusion is
+        effective from the center-of-mass of the binary-star
+        system, instead of the location of each star:
+        planet_distance holds here the distance from a cell to the
+        barycenter of the two satellites */
+        d2 = (xc-xb)*(xc-xb) + (yc-yb)*(yc-yb);
+        planet_distance = sqrt(d2);
       }
       /* --------------- */
       /* NEW July 2012: in torque / force calculation, exclude smoothly 
-	 everything that is further than x H from the planet's radial 
-	 position */
+      everything that is further than x H from the planet's radial 
+      position */
       if (CustTqExc) {
-	// cutoffdist = CUSTTQRAD * H(rp)
-	cutoffdist = CUSTTQRAD * a * ASPECTRATIO;
-	if (a == 0.0) {
-	  custtqexcdistance = 1.0;
-	} else {
-	  raddistfrompla = fabs(Rmed[i]-a);
-	  if (raddistfrompla/cutoffdist < 0.5)
-	    custtqexcdistance = 1.0;
-	  else {
-	    if (raddistfrompla/cutoffdist > 1.0) {
-	      custtqexcdistance = 0.0;
-	    }
-	    else {
-	      custtqexcdistance = 1.0-pow(sin((raddistfrompla/cutoffdist-.5)*M_PI),2.);
-	    }
-	  }
-	}
-      } else
-	custtqexcdistance = 1.0;
+        // cutoffdist = CUSTTQRAD * H(rp)
+        cutoffdist = CUSTTQRAD * a * ASPECTRATIO;
+        if (a == 0.0) {
+          custtqexcdistance = 1.0;
+        } else {
+          raddistfrompla = fabs(Rmed[i]-a);
+          if (raddistfrompla/cutoffdist < 0.5){
+            custtqexcdistance = 1.0;
+          } else {
+            if (raddistfrompla/cutoffdist > 1.0) {
+              custtqexcdistance = 0.0;
+            } else {
+              custtqexcdistance = 1.0-pow(sin((raddistfrompla/cutoffdist-.5)*M_PI),2.);
+            }
+          }
+        }
+      } else {
+        custtqexcdistance = 1.0;
+      }
       /* --------------- */
       for ( k = 0; k < dimfxy; k++ ) {
-	hillcutfactor = (real)k / (real)(dimfxy-1);
-	if ( k != 0 ) {
-	  cutoff = hillcutfactor * rh;
-	  /* New default exclusion function */
-	  if (planet_distance/cutoff < 0.5)
-	    hill_cut = 0.0;
-	  else {
-	    if (planet_distance > cutoff) 
-	      hill_cut = 1.0;
-	    else
-	      hill_cut = pow(sin((planet_distance/cutoff-.5)*M_PI),2.);
-	  }
-	  /* Old default exclusion function */
-	  //hill_cut = 1.-exp(-d2/(cutoff*cutoff));
-	}
-	else
-	  hill_cut = 1.;
-	if (Rmed[i] < a) {
+        hillcutfactor = (real)k / (real)(dimfxy-1);
+        if ( k != 0 ) {
+          cutoff = hillcutfactor * rh;
+          /* New default exclusion function */
+          if (planet_distance/cutoff < 0.5) {
+            hill_cut = 0.0;
+          } else {
+            if (planet_distance > cutoff) 
+              hill_cut = 1.0;
+            else
+              hill_cut = pow(sin((planet_distance/cutoff-.5)*M_PI),2.);
+          }
+        } else {
+          hill_cut = 1.;
+        }
+        if (Rmed[i] < a) {
 #pragma omp atomic
-	  fxi[k] += G*cellmass*dx*InvDist3*hill_cut*custtqexcdistance;
+          fxi[k] += G*cellmass*dx*InvDist3*hill_cut*custtqexcdistance;
 #pragma omp atomic
-	  fyi[k] += G*cellmass*dy*InvDist3*hill_cut*custtqexcdistance;
-	  if (CutForces && (index == 1)) {
-	    fxi[k] = 0.0;
-	    fyi[k] = 0.0;
-	  }
-	} else {
+          fyi[k] += G*cellmass*dy*InvDist3*hill_cut*custtqexcdistance;
+          if (CutForces && (index == 1)) {
+            fxi[k] = 0.0;
+            fyi[k] = 0.0;
+          }
+        } else {
 #pragma omp atomic
-	  fxo[k] += G*cellmass*dx*InvDist3*hill_cut*custtqexcdistance;
+          fxo[k] += G*cellmass*dx*InvDist3*hill_cut*custtqexcdistance;
 #pragma omp atomic
-	  fyo[k] += G*cellmass*dy*InvDist3*hill_cut*custtqexcdistance;
-	  if (CutForces && (index == 0)) {
-	    fxo[k] = 0.0;
-	    fyo[k] = 0.0;
-	  }
-	}
+          fyo[k] += G*cellmass*dy*InvDist3*hill_cut*custtqexcdistance;
+          if (CutForces && (index == 0)) {
+            fxo[k] = 0.0;
+            fyo[k] = 0.0;
+          }
+        }
       }
-      ringtorque += G*cellmass*InvDist3 * (xc*dy - yc*dx);
-      ringmass   += cellmass;
     }
-    if (nplanet != -1)
-      torquedens[i+IMIN] = ringtorque/ringmass;
   }
   if (FakeSequential) {
     for ( k = 0; k < dimfxy; k++ ) {
@@ -238,10 +233,7 @@ void ComputeForce (force, Rho, x, y, rsmoothing, mass, dimfxy, sys, index, nplan
   force->fy_ex_inner = globalforce[2*dimfxy+dimexclude];
   force->fy_outer    = globalforce[3*dimfxy];
   force->fy_ex_outer = globalforce[3*dimfxy+dimexclude];
-  //masterprint("Planet %d: fx_outer = %lg, fy_outer = %lg, fx_inner = %lg, fy_inner = %lg\n",index,force->fx_outer,force->fy_outer,force->fx_inner,force->fy_inner);
   force->GlobalForce = globalforce;
-  if (nplanet != -1)
-    sys->TorqueDens[nplanet] = torquedens;
   free (localforce);
   free (fxi);
   free (fxo);
@@ -253,22 +245,22 @@ void ComputeForce (force, Rho, x, y, rsmoothing, mass, dimfxy, sys, index, nplan
 real compute_smoothing (r)
      real r;
 {
-   real smooth, h;
+   real smooth, H;
    int ip;
    ip = ReturnIndex(r);
-   h = GLOBAL_bufarray[ip] * sqrt(r*r*r);
-   smooth = THICKNESSSMOOTHING * h;
+   H = axics[ip] / sqrt(ADIABATICINDEX) * sqrt(r*r*r);
+   smooth = THICKNESSSMOOTHING * H;
    return smooth;
 }
 
 
 void UpdateLog (fc, psys, Rho, Energy, outputnb, time, dimfxy)
-     Force *fc;
-     PolarGrid *Rho, *Energy;
-     PlanetarySystem *psys;
-     int outputnb;
-     int dimfxy;
-     real time;
+  Force *fc;
+  PolarGrid *Rho, *Energy;
+  PlanetarySystem *psys;
+  int outputnb;
+  int dimfxy;
+  real time;
 {
   int i, nb;
   real x, y, r, m, vx, vy, smoothing;
@@ -288,45 +280,44 @@ void UpdateLog (fc, psys, Rho, Energy, outputnb, time, dimfxy)
       smoothing = r*pow(m/3.,1./3.)*ROCHESMOOTHING;
     else
       smoothing = compute_smoothing(r);
-   if (psys->mass[i] > 0.0){
+    if (psys->mass[i] > 0.0){
       if (psys->TorqueFlag[i]){
-           accelfoo =  AccelFromFormula (fc, Rho, x, y, smoothing, m, psys, i, 0);
+        accelfoo =  AccelFromFormula (fc, Rho, x, y, smoothing, m, psys, i, 0);
       } else {
-           ComputeForce (fc, Rho, x, y, smoothing, m, dimfxy, psys, 2, i);
-	   globalforce = fc->GlobalForce;
+        ComputeForce (fc, Rho, x, y, m, dimfxy, psys, 2);
+	      globalforce = fc->GlobalForce;
       }
    }
     if (CPU_Rank == CPU_Number-1) {
       sprintf (filename, "%stqwk%d.dat", OUTPUTDIR, i);
       out = fopen (filename, "a");
       if (out == NULL) {
-	fprintf (stderr, "Can't open %s\n", filename);
-	fprintf (stderr, "Aborted.\n");
+        fprintf (stderr, "Can't open %s\n", filename);
+        fprintf (stderr, "Aborted.\n");
       }
-     if (psys->TorqueFlag[i]){
-          fprintf (out, "%d\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\n", outputnb, \
-               fc->fy_inner,				\
-               fc->fy_outer,
-               fc->fy_ex_inner,
-               fc->fy_ex_outer,
-               fc->fx_inner,
-               fc->fx_outer,
-               fc->fx_ex_inner,
-               fc->fx_ex_outer,
-               time);
-          fclose (out);
-
+      if (psys->TorqueFlag[i]){
+        fprintf (out, "%d\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\n", outputnb, \
+          fc->fy_inner,				\
+          fc->fy_outer,
+          fc->fy_ex_inner,
+          fc->fy_ex_outer,
+          fc->fx_inner,
+          fc->fx_outer,
+          fc->fx_ex_inner,
+          fc->fx_ex_outer,
+          time);
+      fclose (out);
       } else {
-           fprintf (out, "%d\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\n", outputnb, \
-               x*fc->fy_inner-y*fc->fx_inner,				\
-               x*fc->fy_outer-y*fc->fx_outer,				\
-               x*fc->fy_ex_inner-y*fc->fx_ex_inner,			\
-               x*fc->fy_ex_outer-y*fc->fx_ex_outer,			\
-               vx*fc->fx_inner+vy*fc->fy_inner,				\
-               vx*fc->fx_outer+vy*fc->fy_outer,				\
-               vx*fc->fx_ex_inner+vy*fc->fy_ex_inner,			\
-               vx*fc->fx_ex_outer+vy*fc->fy_ex_outer, time);
-           fclose (out);
+        fprintf (out, "%d\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\n", outputnb, \
+           x*fc->fy_inner-y*fc->fx_inner,				\
+           x*fc->fy_outer-y*fc->fx_outer,				\
+           x*fc->fy_ex_inner-y*fc->fx_ex_inner,			\
+           x*fc->fy_ex_outer-y*fc->fx_ex_outer,			\
+           vx*fc->fx_inner+vy*fc->fy_inner,				\
+           vx*fc->fx_outer+vy*fc->fy_outer,				\
+           vx*fc->fx_ex_inner+vy*fc->fy_ex_inner,			\
+           vx*fc->fx_ex_outer+vy*fc->fy_ex_outer, time);
+        fclose (out);
 		} 
    }
   }

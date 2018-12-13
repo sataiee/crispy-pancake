@@ -45,7 +45,7 @@ int FindNumberOfPlanets (filename)
 PlanetarySystem *AllocPlanetSystem (nb)
 int nb;
 {
-  real *mass, *x, *y, *vx, *vy, *acc, *a, *e, **torquedens;
+  real *mass, *x, *y, *vx, *vy, *acc, *a, *e;
   boolean *feeldisk, *feelothers, *binary, *torqueflag;
   int i, j;
   PlanetarySystem *sys;
@@ -62,11 +62,8 @@ int nb;
   e    = (real *)malloc (sizeof(real)*(nb+1));
   mass = (real *)malloc (sizeof(real)*(nb+1));
   acc  = (real *)malloc (sizeof(real)*(nb+1));
-  torquedens = (real **)malloc (sizeof(real)*(nb+1));
-  for (i = 0; i < nb; i++)
-    torquedens[i] = (real *)malloc (sizeof(real)*GLOBALNRAD);
   if ((x == NULL) || (y == NULL) || (vx == NULL) || (vy == NULL) || (acc == NULL) || \
-      (mass == NULL) || (a == NULL) || (e == NULL) || (torquedens == NULL)) {
+      (mass == NULL) || (a == NULL) || (e == NULL)) {
     fprintf (stderr, "Not enough memory.\n");
     prs_exit (1);
   }
@@ -90,13 +87,10 @@ int nb;
   sys->FeelOthers = feelothers;
   sys->Binary = binary;
   sys->TorqueFlag = torqueflag;
-  sys->TorqueDens = torquedens;
   for (i = 0; i < nb; i++) {
     x[i] = y[i] = vx[i] = vy[i] = a[i] = e[i] = mass[i] = acc[i] = 0.0;
     feeldisk[i] = feelothers[i] = YES;
     binary[i] = torqueflag[i] = NO;
-    for (j = 0; j < GLOBALNRAD; j++)
-			torquedens[i][j] = 0.0;  
   }
   return sys;
 }
@@ -117,7 +111,6 @@ void FreePlanetary (sys)
   free (sys->FeelDisk);
   free (sys->Binary);
   free (sys->TorqueFlag);
-  free (sys->TorqueDens);
   free (sys);
 }
 
@@ -227,13 +220,13 @@ int NbRestart;
     }
   } else {
     /* NEW (Feb. 2014): Fargo/Planete coupling: we get the planets
-       initial orbital parameters from file 'donnees_MP' written by
-       Planete in the output directory. */
+    initial orbital parameters from file 'donnees_MP' written by
+    Planete in the output directory. */
     if (!OneDRun){
       sprintf (name_dim, "%sdims.dat", OUTPUTDIR);
       DIM = fopen (name_dim, "r");
       if (DIM == NULL) 
-          masterprint("dims.dat cannot be read in Psys.c\n");
+        masterprint("dims.dat cannot be read in Psys.c\n");
       fscanf (DIM,"%d %d %d %d %lg %d %d %d\n",&Foo,&Foo,&Foo,&Foo,&foo,&Foo,&Foo,&OldNSEC);
       fclose (DIM);
     }
@@ -252,7 +245,8 @@ int NbRestart;
              Menvelope[i] = menv - deltamenv;
           MenvRemained[i] = GetfromPlanetFile (NbRestart, 17, i);
           PlanetMassAtRestart[i] -= Menvelope[i];
-          if (a <= WKZRMIN) FinalPlanetMass[i]=0.0;
+          if (a <= WKZRMIN)
+            FinalPlanetMass[i]=0.0;
           MenvCount[i] = GetfromPlanetFile (NbRestart, 16, i); //Number of timesteps that the planet cound not accrete as much as it should
        } else {
           PlanetMassAtRestart[i] = 0.0;

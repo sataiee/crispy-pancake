@@ -18,7 +18,7 @@ extern boolean  CorotateWithOuterPlanet, DiscEvaporation, FargoPlanete;
 extern boolean  SelfGravity, SGZeroMode, EnergyEquation, SoftWriting;
 real            ScalingFactor = 1.0;
 real            Runtime = 0.0, PhysicalTimeLast;
-extern boolean	Write_Sigdot, Write_torquedensity;
+extern boolean	Write_Sigdot;
 real            Mdisc0 = 0.0;
 
 
@@ -330,8 +330,6 @@ main(argc, argv)
 		WriteMassTrack (sys, TimeStep, DiskMass, EvapMass, AccMassPls);
 		if (Write_Sigdot)
 			WriteSigmaDotFile(TimeStep);
-		if (Write_torquedensity)
-			WriteTorqueDensity(sys, TimeStep);
 		UpdateLog (force, sys, gas_density, gas_energy, TimeStep, PhysicalTime, dimfxy);	
 		}
 		/* Algorithm loop begins here */
