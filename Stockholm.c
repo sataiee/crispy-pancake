@@ -14,18 +14,20 @@ conditions.
 extern boolean OpenInner, NonReflecting;
 extern Pair DiskOnPrimaryAcceleration;
 
-Force ComputeForceStockholm (Rho, x, y, rsmoothing, mass)
+Force ComputeForceStockholm (Rho, x, y, mass)
      PolarGrid *Rho;
-     real x, y, rsmoothing, mass;
+     real x, y, mass;
 {
   int i, j, l, ns;
   real localforce[8]={0.,0.,0.,0.,0.,0.,0.,0.}, globalforce[8]={0.,0.,0.,0.,0.,0.,0.,0.};
   real xc, yc, cellmass, dx, dy, distance, dist2, rh, a;
   real InvDist3, fxi, fyi, fxhi, fyhi, fxo, fyo, fxho, fyho, outside_hill, inside_hill;
   real *dens, *abs, *ord;
+  real rsmoothing, *cs;
   Force Force;
   ns = Rho->Nsec;
   dens = Rho->Field;
+  cs = SoundSpeed->Field;
   abs = CellAbscissa->Field;
   ord = CellOrdinate->Field;
   fxi = fyi = fxhi = fyhi = fxo = fyo = fxho = fyho = 0.0;
@@ -42,12 +44,16 @@ Force ComputeForceStockholm (Rho, x, y, rsmoothing, mass)
     fxho= globalforce[6];
     fyho= globalforce[7];
   }
+  if (RocheSmoothing)
+      rsmoothing = rh*ROCHESMOOTHING;
 #pragma omp parallel for private(j,outside_hill,inside_hill,cellmass,l,xc,yc,dist2,distance,InvDist3,dx,dy) shared(fxi,fyi,fxhi,fyhi,fxo,fyo,fxho,fyho)
   for (i = Zero_or_active; i < Max_or_active; i++) {
     for (j = 0; j < ns; j++) {
       l = j+i*ns;
       xc = abs[l];
       yc = ord[l];
+      if (!RocheSmoothing)
+        rsmoothing = cs[l] * pow(xc*xc+yc*yc, 1.5)/sqrt(ADIABATICINDEX) * THICKNESSSMOOTHING ;
       cellmass = Surf[i]*dens[l];
       dx = xc-x;
       dy = yc-y;
@@ -189,11 +195,7 @@ void UpdateLogStockholm (psys, Rho, Energy, outputnb, time)
     vy = psys->vy[i];
     r = sqrt(x*x+y*y);
     m = psys->mass[i];
-    if (RocheSmoothing)
-      smoothing = r*pow(m/3.,1./3.)*ROCHESMOOTHING;
-    else
-      smoothing = compute_smoothing (r);
-    fc = ComputeForceStockholm (Rho, x, y, smoothing, m);
+    fc = ComputeForceStockholm (Rho, x, y, m);
     massinout = MassInOut (Rho, r);
     if (CPU_Rank == CPU_Number-1) {
       sprintf (filename, "%storque%d.dat", OUTPUTDIR, i);

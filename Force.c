@@ -54,8 +54,8 @@ void ComputeForce (force, Rho, x, y, mass, dimfxy, sys, index)
      PlanetarySystem *sys;
      int index;
 {
-  int i, j, l, ns, nr, k;
-  real xc, yc, cellmass, dx, dy, distance, d2, dist2, rh, a;
+  int i, j, l, ns, nr, k, iplanet, ii;
+  real xc, yc, cellmass, dx, dy, distance, d2, dist2, rh, a, frac, csp;
   int dimexclude;
   real x0, x1, y0, y1, m0, m1, xb, yb;
   real planet_distance, cutoff;
@@ -63,7 +63,7 @@ void ComputeForce (force, Rho, x, y, mass, dimfxy, sys, index)
   real *fxi, *fxo, *fyi, *fyo;
   real *localforce, *globalforce;
   real *dens, *abs, *ord;
-  extern boolean CustTqExc, CutForces;
+  extern boolean CustTqExc, CutForces, SmoothAtPlanet;
   real custtqexcdistance, cutoffdist, raddistfrompla;
   real rsmoothing, *cs;
   fxi = (real *) prs_malloc (sizeof(real) * dimfxy);
@@ -114,6 +114,17 @@ void ComputeForce (force, Rho, x, y, mass, dimfxy, sys, index)
   }
   if (RocheSmoothing)
       rsmoothing = a*pow(mass/3.,1./3.)*ROCHESMOOTHING;
+  if (SmoothAtPlanet) {
+      if (PhysicalTime != 0.0){
+        iplanet = GetGlobalIFrac (a);
+        frac = iplanet-floor(iplanet);
+        ii = (int)iplanet;
+        csp = axics[ii]*(1.0-frac)+axics[ii+1]*frac;
+        rsmoothing = csp * a * sqrt(a) * THICKNESSSMOOTHING;
+      } else {
+        rsmoothing = ASPECTRATIO * pow(a, FLARINGINDEX+1) * THICKNESSSMOOTHING;
+      }
+    }
 #pragma omp parallel for private(j,hill_cut,cellmass,l,xc,yc,dist2,distance,InvDist3,dx,dy) shared(fxi,fyi,fxhi,fyhi,fxo,fyo,fxho,fyho)
   for (i = Zero_or_active; i < Max_or_active; i++) {
     for (j = 0; j < ns; j++) {
@@ -125,7 +136,7 @@ void ComputeForce (force, Rho, x, y, mass, dimfxy, sys, index)
       dy = yc-y;
       d2 = dx*dx+dy*dy;
       planet_distance = sqrt(d2);
-      if (!RocheSmoothing)
+      if ((!RocheSmoothing) && (!SmoothAtPlanet))
         rsmoothing = cs[l] * pow(xc*xc+yc*yc, 1.5)/sqrt(ADIABATICINDEX) * THICKNESSSMOOTHING ;
       dist2 = d2 + rsmoothing*rsmoothing;
       distance = sqrt(dist2);
@@ -154,7 +165,7 @@ void ComputeForce (force, Rho, x, y, mass, dimfxy, sys, index)
             custtqexcdistance = 1.0;
           } else {
             if (raddistfrompla/cutoffdist > 1.0) {
-              custtqexcdistance = 0.0;
+            custtqexcdistance = 0.0;
             } else {
               custtqexcdistance = 1.0-pow(sin((raddistfrompla/cutoffdist-.5)*M_PI),2.);
             }
@@ -200,6 +211,8 @@ void ComputeForce (force, Rho, x, y, mass, dimfxy, sys, index)
           }
         }
       }
+     //if (mass != 0.0 )
+      // printf("t=%lg, i=%d, j=%d, fx_outer = %lg, fy_outer = %lg, fx_inner = %lg, fy_inner = %lg\n",PhysicalTime, i, j,fxo[0], fyo[0], fxi[0], fyi[0]);
     }
   }
   if (FakeSequential) {
@@ -233,6 +246,7 @@ void ComputeForce (force, Rho, x, y, mass, dimfxy, sys, index)
   force->fy_ex_inner = globalforce[2*dimfxy+dimexclude];
   force->fy_outer    = globalforce[3*dimfxy];
   force->fy_ex_outer = globalforce[3*dimfxy+dimexclude];
+  //masterprint("Planet %d: fx_outer = %lg, fy_outer = %lg, fx_inner = %lg, fy_inner = %lg\n",index,force->fx_outer,force->fy_outer,force->fx_inner,force->fy_inner);
   force->GlobalForce = globalforce;
   free (localforce);
   free (fxi);
@@ -245,11 +259,13 @@ void ComputeForce (force, Rho, x, y, mass, dimfxy, sys, index)
 real compute_smoothing (r)
      real r;
 {
-   real smooth, H;
-   int ip;
-   ip = ReturnIndex(r);
-   H = axics[ip] / sqrt(ADIABATICINDEX) * sqrt(r*r*r);
-   smooth = THICKNESSSMOOTHING * H;
+   real smooth, frac, csp;
+   int iplanet, ii;
+   iplanet = GetGlobalIFrac (r);
+   frac = iplanet-floor(iplanet);
+   ii = (int)iplanet;
+   csp = axics[ii]*(1.0-frac)+axics[ii+1]*frac;
+   smooth = csp * r * sqrt(r) * THICKNESSSMOOTHING;
    return smooth;
 }
 
@@ -285,9 +301,9 @@ void UpdateLog (fc, psys, Rho, Energy, outputnb, time, dimfxy)
         accelfoo =  AccelFromFormula (fc, Rho, x, y, smoothing, m, psys, i, 0);
       } else {
         ComputeForce (fc, Rho, x, y, m, dimfxy, psys, 2);
-	      globalforce = fc->GlobalForce;
+        globalforce = fc->GlobalForce;
       }
-   }
+    }
     if (CPU_Rank == CPU_Number-1) {
       sprintf (filename, "%stqwk%d.dat", OUTPUTDIR, i);
       out = fopen (filename, "a");
@@ -297,7 +313,7 @@ void UpdateLog (fc, psys, Rho, Energy, outputnb, time, dimfxy)
       }
       if (psys->TorqueFlag[i]){
         fprintf (out, "%d\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\n", outputnb, \
-          fc->fy_inner,				\
+          fc->fy_inner,        \
           fc->fy_outer,
           fc->fy_ex_inner,
           fc->fy_ex_outer,
@@ -306,19 +322,20 @@ void UpdateLog (fc, psys, Rho, Energy, outputnb, time, dimfxy)
           fc->fx_ex_inner,
           fc->fx_ex_outer,
           time);
-      fclose (out);
+        fclose (out);
+
       } else {
         fprintf (out, "%d\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\n", outputnb, \
-           x*fc->fy_inner-y*fc->fx_inner,				\
-           x*fc->fy_outer-y*fc->fx_outer,				\
-           x*fc->fy_ex_inner-y*fc->fx_ex_inner,			\
-           x*fc->fy_ex_outer-y*fc->fx_ex_outer,			\
-           vx*fc->fx_inner+vy*fc->fy_inner,				\
-           vx*fc->fx_outer+vy*fc->fy_outer,				\
-           vx*fc->fx_ex_inner+vy*fc->fy_ex_inner,			\
-           vx*fc->fx_ex_outer+vy*fc->fy_ex_outer, time);
+          x*fc->fy_inner-y*fc->fx_inner,        \
+          x*fc->fy_outer-y*fc->fx_outer,        \
+          x*fc->fy_ex_inner-y*fc->fx_ex_inner,      \
+          x*fc->fy_ex_outer-y*fc->fx_ex_outer,      \
+          vx*fc->fx_inner+vy*fc->fy_inner,        \
+          vx*fc->fx_outer+vy*fc->fy_outer,        \
+          vx*fc->fx_ex_inner+vy*fc->fy_ex_inner,      \
+          vx*fc->fx_ex_outer+vy*fc->fy_ex_outer, time);
         fclose (out);
-		} 
-   }
+      } 
+    }
   }
 }

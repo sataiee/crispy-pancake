@@ -204,7 +204,7 @@ FILE *fopenp (string, mode)
 void ComputeCodeUnits ()
 {
   char filename[256];
-  FILE 	*dim;
+  FILE   *dim;
   /* by default, unit_mass is one Sun mass in kg */
   unit_mass   = 1.9891e30*FACTORUNITMASS;     
   /* by default, unit_length is one AU in meters */
@@ -242,18 +242,18 @@ void ComputeCodeUnits ()
 /*minimizing the vertical distance between three given point and a line through 
   them. It gives the coefficients b,c in X=br+c, X and r are input*/
 void LinearInterpole(X, r, coeff, N1, N2)
-  real *X, *r, coeff[2];
-  int N1, N2;
+    real *X, *r, coeff[2];
+     int N1, N2;
 {
-   int i,N;
-   real sigXr=0, sigX=0, sigr2=0, sigr=0;
-   for (i=N1; i<N2+1; i++){
+  int i,N;
+  real sigXr=0, sigX=0, sigr2=0, sigr=0;
+  for (i=N1; i<N2+1; i++){
     sigX += X[i];
     sigXr += X[i]*r[i];
     sigr2 += r[i]*r[i];
     sigr += r[i];     
-   }
-   N = N2+1-N1;
-   coeff[0] = (N*sigXr-sigr*sigX) / (N*sigr2-sigr*sigr);
-   coeff[1] = (sigXr*sigr-sigX*sigr2) / (sigr*sigr-N*sigr2);
+  }
+  N = N2+1-N1;
+  coeff[0] = (N*sigXr-sigr*sigX) / (N*sigr2-sigr*sigr);
+  coeff[1] = (sigXr*sigr-sigX*sigr2) / (sigr*sigr-N*sigr2);
 }

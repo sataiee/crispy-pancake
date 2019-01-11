@@ -430,6 +430,7 @@ void Write1DFields(dens, gasvr, Temperature, number, sys)
   free(OneDarray);
 }
 
+
 void Write1DViscosity(number)
      int 	number;
 {
@@ -495,7 +496,7 @@ void SendOutput (index, dens, gasvr, gasvt, gasenerg, label, sys)
     if (Write_RadDiff == YES)  WriteDiskPolar (RadDiffusion, index);
     if (Write_StarIrrad == YES) WriteDiskPolar (StarIrradiation, index);
     if (Write_pdv == YES) WriteDiskPolar (pdvEnergy, index);
-    if (Write_ArtVisc == YES) WriteDiskPolar (ArtViscHeat, index);    
+    if (Write_ArtVisc == YES) WriteDiskPolar (ArtViscHeat, index);
     if (Write_Opacity == YES)   WriteDiskPolar (Opacity, index);
     if (Write_Potential == YES)  WriteDiskPolar (Potential, index);
     if (Write_Test == YES)  WriteDiskPolar (Test, index);

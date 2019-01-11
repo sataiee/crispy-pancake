@@ -17,18 +17,18 @@ extern int      begin_i;
 extern boolean  OpenInner, OneDRun;
 static Param    VariableSet[MAXVARIABLES];
 static int      VariableIndex = 0;
-static int	    FirstStep = YES;
+static int      FirstStep = YES;
 static clock_t  First, Preceeding, Current, FirstUser, CurrentUser, PreceedingUser;
-static long	    Ticks;
+static long     Ticks;
 boolean         FastTransport = YES, GuidingCenter = NO, BinaryCenter = NO, Indirect_Term = YES, RetrogradeBinary = NO;
 boolean         IsDisk = YES, NonReflecting = NO, Corotating = NO, OuterSourceMass = NO, Evanescent = NO, MixedBC = NO;
 boolean         Write_Density = YES, Write_Velocity = YES, Write_Energy = NO, Write_pdv=NO, Write_ArtVisc=NO;
 boolean         Write_Temperature = NO, Write_DivV = NO, Write_OneD_Fields = NO;
-boolean         Write_TherHeat = NO, Write_TherCool = NO, Write_ViscHeat = NO, Write_RadDiff=NO, Write_StarIrrad = NO, Write_Opacity;
+boolean         Write_TherHeat = NO, Write_TherCool = NO, Write_ViscHeat = NO, Write_RadDiff=NO, Write_StarIrrad = NO, Write_Opacity=NO;
 boolean         Write_Potential = NO, Write_Test = NO, Write_gr = NO, Write_gtheta = NO;
 boolean         SelfGravity = NO, SGZeroMode = NO, ZMPlus = NO, AddNoise = NO;
 boolean         EnergyEquation = NO, ModifiedSoundSpeed = NO, ThermalDiffusion = NO, ThermalCooling = NO, ViscousHeating = YES, TempPresc = NO, BetaCooling = NO, RadiativeDiffusion = NO;
-boolean         CICPlanet = NO, ForcedCircular = NO, ForcedInnerCircular = NO, ForcedCircularTemp = NO;
+boolean         CICPlanet = NO, ForcedCircular = NO, ForcedInnerCircular = NO, ForcedCircularTemp = NO;;
 boolean         MHDLSA = NO, HighMCutoff = NO;
 boolean         KNOpen = NO;
 boolean         AdvecteLabel = NO;
@@ -41,8 +41,8 @@ boolean         CorotateWithOuterPlanet = NO;
 boolean         DiscEvaporation = NO;
 boolean         CustomizedIT = NO;
 boolean         FargoPlanete = NO, ExponentialDecay = NO;
-boolean	    	  PhotoEvapor = NO, AccBoundary = NO, Write_Sigdot, MdotHartmann = NO, DecInner = NO, OpInner = NO, StellarIrradiation=NO, Alexboundary=NO;
-boolean         InitEquilibrium = NO, Write_OneD_Viscosity = NO;
+boolean         PhotoEvapor = NO, AccBoundary = NO, Write_Sigdot, MdotHartmann = NO, DecInner = NO, OpInner = NO, StellarIrradiation=NO, Alexboundary=NO;
+boolean         InitEquilibrium = NO, Write_OneD_Viscosity = NO, SmoothAtPlanet = NO;
 
 void var(name, ptr, type, necessary, deflt)
      char           *name;
@@ -53,7 +53,7 @@ void var(name, ptr, type, necessary, deflt)
 {
   real            valuer;
   int             valuei;
-  double	        temp;
+  double          temp;
   sscanf (deflt, "%lf", &temp);
   valuer = (real) (temp);
   valuei = (int) valuer;
@@ -109,9 +109,8 @@ void ReadVariables(filename)
       found = NO;
       for (i = 0; i < VariableIndex; i++) {
         if (strcmp(nm, VariableSet[i].name) == 0) {
-          if (VariableSet[i].read == YES) {
+          if (VariableSet[i].read == YES)
             mastererr("Warning : %s defined more than once.\n", nm);
-          }
           found = YES;
           VariableSet[i].read = YES;
           ptri = (int *) (VariableSet[i].variable);
@@ -125,9 +124,8 @@ void ReadVariables(filename)
           }
         }
       }
-      if (found == NO) {
+      if (found == NO)
         mastererr("Warning : variable %s defined but non-existent in code.\n", nm);
-      }
     }
   }
   /* NEW: project fargo/planet: if -w flag  activated, run with 1D disc */
@@ -148,7 +146,7 @@ void ReadVariables(filename)
       mastererr("%s\n", VariableSet[i].name);
     }
     if (found == YES)
-      prs_exit(1);
+    prs_exit(1);
   }
   found = NO;
   for (i = 0; i < VariableIndex; i++) {
@@ -176,8 +174,7 @@ void ReadVariables(filename)
       OpInner = YES;
       masterprint("Your inner boundary will be open.\n");
     }
-  }  
-  if ((*OPENINNERBOUNDARY == 'E') || (*OPENINNERBOUNDARY == 'e')) Evanescent = YES;
+  }
   if ((*OPENINNERBOUNDARY == 'M') || (*OPENINNERBOUNDARY == 'm')) MixedBC = YES;
   if ((*OPENINNERBOUNDARY == 'A') || (*OPENINNERBOUNDARY == 'a')) AccBoundary = YES;
   if ((*OPENINNERBOUNDARY == 'K') || (*OPENINNERBOUNDARY == 'k')) {
@@ -209,7 +206,7 @@ void ReadVariables(filename)
   if ((*WRITERADDIFF == 'Y') || (*WRITERADDIFF == 'y')) Write_RadDiff = YES;
   if ((*WRITESTARIRRAD == 'Y') || (*WRITESTARIRRAD == 'y')) Write_StarIrrad = YES;
   if ((*WRITEPDV == 'Y') || (*WRITEPDV == 'y')) Write_pdv = YES;
-  if ((*WRITEARTVISC == 'Y') || (*WRITEARTVISC == 'y')) Write_ArtVisc = YES;  
+  if ((*WRITEARTVISC == 'Y') || (*WRITEARTVISC == 'y')) Write_ArtVisc = YES;
   if ((*WRITEOPACITY =='Y') || (*WRITEOPACITY == 'y')) Write_Opacity = YES;
   if ((*WRITEPOTENTIAL == 'Y') || (*WRITEPOTENTIAL == 'y')) Write_Potential = YES;
   if ((*WRITETEST == 'Y') || (*WRITETEST == 'y')) Write_Test = YES;
@@ -291,6 +288,7 @@ void ReadVariables(filename)
       BetaCooling = NO;  
       StellarIrradiation = NO; 
       IrradStar = NO;
+      ADIABATICINDEX = 1.0;
   }
   if ((*WRITEENERGY == 'N') || (*WRITEENERGY == 'n')) Write_Energy = NO;
   if ((*MHD == 'L') || (*MHD == 'l')) {
@@ -316,7 +314,7 @@ void ReadVariables(filename)
 		 		mastererr ("ForcedCircularTemporary needs ReleaseDate larger than 0.\n");
      prs_exit (1);
      }
-  }  
+  }
   if ((*READPLANETFILEATRESTART == 'N') || (*READPLANETFILEATRESTART == 'n')) ReadPlanetFileAtRestart = NO;
   if ((*DONTAPPLYSUBKEPLERIAN == 'Y') || (*DONTAPPLYSUBKEPLERIAN == 'y')) {
     masterprint ("================================================\n");
@@ -354,7 +352,7 @@ void ReadVariables(filename)
     mastererr ("Edit the parameter file so as to remove\n");
     mastererr ("one of these variables and run again.\n");
     prs_exit (1);
-  }
+  } 
   if ((THICKNESSSMOOTHING <= 0.0) && (ROCHESMOOTHING <= 0.0)) {
     mastererr ("A non-vanishing potential smoothing length is required.\n");
     mastererr ("Please use either of the following variables:\n");
@@ -370,6 +368,11 @@ void ReadVariables(filename)
   if (ROCHESMOOTHING != 0.0) {
     RocheSmoothing = YES;
     masterprint ("Planet potential smoothing scales with their Hill sphere.\n");
+  } else {
+    if ((*SMOOTHINGAT == 'P') || (*SMOOTHINGAT == 'p')){
+      SmoothAtPlanet = YES;
+      masterprint("Smoothing length will be calculated at the location of the planet.\n");
+    }
   }
   if (MCRIFACTOR != 0.0) masterprint("The critical mass factor you set is %e\n", MCRIFACTOR );
   if ((MCRIFACTOR == 0.0) && (FargoPlanete == YES)) {
@@ -415,7 +418,7 @@ void ReadVariables(filename)
         mastererr ("MDOTINIT, MDOTFINAL, MDOTTIME in the .par file.\n");
         prs_exit (1);
       }
-    } else if (MDOTTIME != 1.0){
+    } else if (MDOTTIME != 1.0) {
           mastererr("You can not use mdot Hartmann and user a definded value at the same time.\n");
     }
     if ((*ZEROINNER == 'D') || (*ZEROINNER == 'd')){
@@ -515,7 +518,7 @@ void TellEverything () {
   printf ("Aspect Ratio          : %g\n", ASPECTRATIO);
   printf ("VKep at inner edge    : %.3g\n", sqrt(G*1.0*(1.-0.0)/RMIN));
   printf ("VKep at outer edge    : %.3g\n", sqrt(G*1.0/RMAX));
-  temp=(PMAX-PMIN)*SIGMA0/(2.0-SIGMASLOPE)*(pow(RMAX,2.0-SIGMASLOPE) - pow(RMIN,2.0-SIGMASLOPE));	/* correct this and what follows... */
+  temp=(PMAX-PMIN)*SIGMA0/(2.0-SIGMASLOPE)*(pow(RMAX,2.0-SIGMASLOPE) - pow(RMIN,2.0-SIGMASLOPE));  /* correct this and what follows... */
   printf ("Initial Disk Mass             : %g\n", temp);
   temp=(PMAX-PMIN)*SIGMA0/(2.0-SIGMASLOPE)*(1.0 - pow(RMIN,2.0-SIGMASLOPE));
   printf ("Initial Mass inner to r=1.0  : %g \n", temp);
@@ -593,7 +596,7 @@ void GiveTimeInfo (number)
     fprintf (stderr, "Mean CPU Time between time steps : %.3f s\n", mean);
     fprintf (stderr, "CPU Load on last time step : %.1f %% \n", (real)(CurrentUser-PreceedingUser)/(real)(Current-Preceeding)*100.);
     
-  }	
+  }  
   PreceedingUser = CurrentUser;
   Preceeding = Current;
 }

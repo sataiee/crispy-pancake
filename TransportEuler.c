@@ -90,7 +90,7 @@ void ComputeLRMomenta (Rho, Vrad, Vtheta)
       lip = l+ns;
       ljp = l+1;
       if (j == ns-1)
-	ljp = i*ns;
+      ljp = i*ns;
       rp[l] = rho[l]*vr[lip];
       rm[l] = rho[l]*vr[l];
       tp[l] = rho[l]*(vt[ljp]+Rmed[i]*OmegaFrame)*Rmed[i]; /* it is the angular momentum */
@@ -138,14 +138,15 @@ void ComputeStarRad (Qbase, Vrad, QStar, dt)
       lq= i+j*nr;
       lip = l+ns;
       lim = l-ns;
-      if ((i == 0) || (i == nr-1)) dq[lq] = 0.0;
-      else {
-	dqm = (qb[l]-qb[lim])*InvDiffRmed[i];
-	dqp = (qb[lip]-qb[l])*InvDiffRmed[i+1];
-	if (dqp * dqm > 0.0)
-	  dq[lq] = 2.0*dqp*dqm/(dqp+dqm);
-	else
-	  dq[lq] = 0.0;
+      if ((i == 0) || (i == nr-1)) {
+       dq[lq] = 0.0;
+      } else {
+        dqm = (qb[l]-qb[lim])*InvDiffRmed[i];
+        dqp = (qb[lip]-qb[l])*InvDiffRmed[i+1];
+        if (dqp * dqm > 0.0)
+          dq[lq] = 2.0*dqp*dqm/(dqp+dqm);
+        else
+          dq[lq] = 0.0;
       }
     }
     for (i = 1; i < nr; i++) {
@@ -154,9 +155,9 @@ void ComputeStarRad (Qbase, Vrad, QStar, dt)
       lip = l+ns;
       lim = l-ns;
       if (vr[l] > 0.0)
-	qs[l] = qb[lim]+(Rmed[i]-Rmed[i-1]-vr[l]*dt)*0.5*dq[lq-1];
+        qs[l] = qb[lim]+(Rmed[i]-Rmed[i-1]-vr[l]*dt)*0.5*dq[lq-1];
       else
-	qs[l] = qb[l]-(Rmed[i+1]-Rmed[i]+vr[l]*dt)*0.5*dq[lq];
+        qs[l] = qb[l]-(Rmed[i+1]-Rmed[i]+vr[l]*dt)*0.5*dq[lq];
     }
     qs[j] = qs[j+ns*nr] = 0.0;
   }
@@ -189,7 +190,7 @@ real VanLeerRadial (Vrad, Qbase, dt)
       qb[l] += varq*InvSurf[i];
       if ((i == 0) && (OpenInner == YES))
 #pragma omp atomic
-	LostByDisk += varq;
+        LostByDisk += varq;
     }
   }
   return LostByDisk;
@@ -205,7 +206,7 @@ void OneWindTheta (Rho, Vtheta, Energy, dt)
   ComputeThetaElongations (Vtheta, dt);
   ComputeAverageThetaVelocities (Vtheta, dt);
   ComputeResiduals (Vtheta, dt);
-  ComputeConstantResidual (Vtheta, dt);	
+  ComputeConstantResidual (Vtheta, dt);  
   /* Constant residual is in Vtheta from now on */
   UniformTransport = NO;
   QuantitiesAdvection (Rho, VthetaRes, Energy, dt);
@@ -297,7 +298,7 @@ void ComputeConstantResidual (Vtheta, dt)
   invdt = 1.0/dt;
   dpinvns = (PMAX-PMIN)/(real)ns;
   if (FastTransport == YES)
-    maxfrac = 1.0;		/* Fast algorithm */
+    maxfrac = 1.0;    /* Fast algorithm */
   else
     maxfrac = 0.0;
 #pragma omp parallel for private(Ntilde,nitemp,Nround,j,l)
@@ -313,9 +314,9 @@ void ComputeConstantResidual (Vtheta, dt)
     if (maxfrac < 0.5) { 
       NoSplitAdvection[i] = YES;
       for (j = 0; j < ns; j++) {
-	l=j+i*ns;
-	vres[l] = vt[l]+vres[l];
-	vt[l] = 0.0;
+        l=j+i*ns;
+        vres[l] = vt[l]+vres[l];
+        vt[l] = 0.0;
       }
     } else {
       NoSplitAdvection[i] = NO;
@@ -390,9 +391,9 @@ void ComputeStarTheta (Qbase, Vtheta, QStar, dt)
       dqm = (qb[l]-qb[ljm]);
       dqp = (qb[ljp]-qb[l]);
       if (dqp * dqm > 0.0)
-	dq[l] = dqp*dqm/(dqp+dqm)*invdxtheta;
+        dq[l] = dqp*dqm/(dqp+dqm)*invdxtheta;
       else
-	dq[l] = 0.0;
+        dq[l] = 0.0;
     }
     for (j = 0; j < ns; j++) {
       l = j+i*ns;
@@ -401,9 +402,9 @@ void ComputeStarTheta (Qbase, Vtheta, QStar, dt)
       ljm = jm+i*ns;
       ksi=vt[l]*dt;
       if (ksi > 0.0)
-	qs[l] = qb[ljm]+(dxtheta-ksi)*dq[ljm];
+        qs[l] = qb[ljm]+(dxtheta-ksi)*dq[ljm];
       else
-	qs[l] = qb[l]-(dxtheta+ksi)*dq[l];
+        qs[l] = qb[l]-(dxtheta+ksi)*dq[l];
     }
   }
 }
@@ -429,12 +430,12 @@ void VanLeerTheta (Vtheta, Qbase, dt)
     invsurf = 1.0/Surf[i];
     if ((UniformTransport == NO) || (NoSplitAdvection[i] == NO)) {
       for (j = 0; j < ns; j++) {
-	l=j+i*ns;
-	ljp=l+1;
-	if (j == ns-1) ljp=i*ns;
-	varq  = dxrad*qrs[l]*rhos[l]*vt[l];
-	varq -= dxrad*qrs[ljp]*rhos[ljp]*vt[ljp];
-	qb[l] += varq*invsurf;
+        l=j+i*ns;
+        ljp=l+1;
+        if (j == ns-1) ljp=i*ns;
+        varq  = dxrad*qrs[l]*rhos[l]*vt[l];
+        varq -= dxrad*qrs[ljp]*rhos[ljp]*vt[ljp];
+        qb[l] += varq*invsurf;
       }
     }
   }
@@ -459,7 +460,7 @@ void ComputeExtQty (Rho, Label, ExtLabel)
       l = j+i*ns;
       extlab[l] = rho[l]*lab[l]; 
       /* compressive flow  if line commentarized
-	 extlab[l] = lab[l]; */
+       extlab[l] = lab[l]; */
     }
   }
 }
@@ -480,7 +481,7 @@ void ComputeSpeQty (Rho, Label, ExtLabel)
       l = j+i*ns;
       lab[l] = extlab[l]/rho[l]; 
       /* compressive flow if line commentarized
-	 lab[l] = extlab[l]; */
+       lab[l] = extlab[l]; */
     }
   }
 }
@@ -510,13 +511,13 @@ void ComputeVelocities (Rho, Vrad, Vtheta)
       lim = l-ns;
       ljm = l-1;
       if (j == 0)
-	ljm = i*ns+ns-1;
+        ljm = i*ns+ns-1;
       if (i == 0)
-	vr[l] = 0.0;
-      else		
-	vr[l] = (rp[lim]+rm[l])/(rho[l]+rho[lim]+1e-20);
+        vr[l] = 0.0;
+      else    
+        vr[l] = (rp[lim]+rm[l])/(rho[l]+rho[lim]+1e-20);
       vt[l] = (tp[ljm]+tm[l])/(rho[l]+rho[ljm]+1e-15)/Rmed[i]-Rmed[i]*OmegaFrame;
-				/* It was the angular momentum */
+      /* It was the angular momentum */
     }
   }
 }

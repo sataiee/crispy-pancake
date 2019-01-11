@@ -114,9 +114,11 @@ void FreePlanetary (sys)
   free (sys);
 }
 
-PlanetarySystem *InitPlanetarySystem (filename,NbRestart)
+PlanetarySystem *InitPlanetarySystem (filename,NbRestart, Rho, force)
 char *filename;
 int NbRestart;
+PolarGrid *Rho;
+Force *force;
 {
   extern boolean CICPlanet;
   FILE *input, *DIM, *tempinput;
@@ -124,8 +126,10 @@ int NbRestart;
   char name[256];
   char s[512], nm[512], test1[512], test2[512], test3[512], *s1;
   PlanetarySystem *sys;
-  int i=0, j, nb, counter, nbplanets, fixedpls, Foo;
+  int i=0, j, nb, counter, nbplanets, fixedpls, Foo, ii, nr, ns, l;
   float mass, dist, accret, eccentricity;
+  real MassInside=0, *cs;
+  Pair gamma;
   extern real Runtime;
   int OldNSEC;
   real m0, m1, mbin, *Mswitch;
@@ -133,6 +137,9 @@ int NbRestart;
   real a, e, incl, foo, mcore, menv, dcore, stime, deltamenv;
   boolean feeldis, feelothers, binary;
   nb = FindNumberOfPlanets (filename);
+  cs = SoundSpeed->Field;
+  nr = SoundSpeed->Nrad;
+  ns = SoundSpeed->Nsec;
   Mswitch = (real *)malloc(nb*sizeof(real));
   if (CPU_Master)
     printf ("%d planet(s) found.\n", nb);
@@ -150,6 +157,14 @@ int NbRestart;
   }
   sys->nb = nb;
   if (!FargoPlanete) {
+    for (i = 0; i < nr; i++){
+      for (j = 0; j < ns; j++){
+        l = i*ns + j;
+        cs[l] = AspectRatio(Rmed[i])*sqrt(G*1.0/Rmed[i])*pow(Rmed[i], FLARINGINDEX);
+      }
+    }
+    i = 0;
+    j = 0;
     while (fgets(s, 510, input) != NULL) {
       sscanf(s, "%s ", nm);
       if (isalpha(s[0])) {
@@ -163,19 +178,19 @@ int NbRestart;
          dist = Radii[j+1];
        }
        if (NbRestart != 0) {      
-				  sprintf (name, "%splanet%d.dat", OUTPUTDIR, i);
-				  tempinput = fopen (name, "r");
-				  if (tempinput == NULL) {
-		  	    masterprint ("Can't read 'planet%d.dat' file. Using configuration information.\n",i);
-            PlanetMassAtRestart[i] = (real)mass;
-            Menvelope[i] = 0.0;
-            MenvRemained[i] = 0.0;
-          } else {
-            PlanetMassAtRestart[i] = GetfromPlanetFile (NbRestart, 6, i);
-            Menvelope[i] = GetfromPlanetFile (NbRestart, 12, i);
-            MenvRemained[i] = GetfromPlanetFile (NbRestart, 17, i);
-            fclose(tempinput);
-         }
+        sprintf (name, "%splanet%d.dat", OUTPUTDIR, i);
+        tempinput = fopen (name, "r");
+        if (tempinput == NULL) {
+          masterprint ("Can't read 'planet%d.dat' file. Using configuration information.\n",i);
+          PlanetMassAtRestart[i] = (real)mass;
+          Menvelope[i] = 0.0;
+          MenvRemained[i] = 0.0;
+        } else {
+          PlanetMassAtRestart[i] = GetfromPlanetFile (NbRestart, 6, i);
+          Menvelope[i] = GetfromPlanetFile (NbRestart, 12, i);
+          MenvRemained[i] = GetfromPlanetFile (NbRestart, 17, i);
+          fclose(tempinput);
+        }
        } else { 
          PlanetMassAtRestart[i] = (real)mass;
          Menvelope[i] = 0.0;
@@ -203,18 +218,25 @@ int NbRestart;
           nor each other: Fargo/Planet coupling where Planet handles 
           the planet evolution */
        if (tolower(*test3) == 'y') binary = YES;
+       MassInside += massinvelocity;
        sys->x[i] = (real)dist*(1.0+eccentricity);
        sys->y[i] = 0.0;
        sys->a[i] = (real)dist;
        sys->e[i] = eccentricity;
-       sys->vy[i] = (real)sqrt(G*(1.0+massinvelocity)/dist)*       \
-         sqrt( (1.0-eccentricity)/(1.0+eccentricity) );
-       sys->vx[i] = -0.000000000*sys->vy[i];
        sys->acc[i] = accret;
        sys->FeelDisk[i] = feeldis;
        sys->FeelOthers[i] = feelothers;
        sys->Binary[i] = binary;
        sys->TorqueFlag[i] = NO;
+       if ((feeldis == YES) && ((*CORRECTVPLANET == 'Y') || (*CORRECTVPLANET == 'y'))) {
+         gamma = ComputeAccel (force, Rho, sys->x[i], sys->y[i], massinvelocity, sys, 2);
+         gamma.x -= (1.0+MassInside)/dist/dist;
+         sys->vy[i] = sqrt(dist*fabs(gamma.x)); // This condition is only for circular planets
+         sys->e[i] = 0.0;
+       } else {
+         sys->vy[i] = sqrt((1.0+MassInside)/dist)*sqrt( (1.0-eccentricity)/(1.0+eccentricity) );
+       }
+       sys->vx[i] = 0.0;
        i++;
       }
     }
@@ -233,60 +255,60 @@ int NbRestart;
     while (fgets(s, 510, input) != NULL) {
       sscanf(s, "%s ", nm);
       if (isalnum(s[0])) {
-         sscanf(s + strspn(s, "\t :=>_"), "%lg %lg %lg %lg %lg %lg %lg %lg %lg %lg %lg %d", &a, &e, \
-         &incl, &foo, &foo, &foo, &mcore, &menv, &dcore, &stime, &deltamenv, &fixedpls);
-       /* -------------------------- */
-       /* Mass of planet i at the end of the calculation */
-       FinalPlanetMass[i] = mcore+menv - deltamenv; //deltamcore will be accreted
-       if (NbRestart != 0) {
+        sscanf(s + strspn(s, "\t :=>_"), "%lg %lg %lg %lg %lg %lg %lg %lg %lg %lg %lg %d", &a, &e, \
+              &incl, &foo, &foo, &foo, &mcore, &menv, &dcore, &stime, &deltamenv, &fixedpls);
+        /* -------------------------- */
+        /* Mass of planet i at the end of the calculation */
+        FinalPlanetMass[i] = mcore+menv - deltamenv; //deltamcore will be accreted
+        if (NbRestart != 0) {
           PlanetMassAtRestart[i] = GetfromPlanetFile (NbRestart, 6, i);
           Menvelope[i] = GetfromPlanetFile (NbRestart, 12, i);
           if (OldNSEC == 1)
-             Menvelope[i] = menv - deltamenv;
+            Menvelope[i] = menv - deltamenv;
           MenvRemained[i] = GetfromPlanetFile (NbRestart, 17, i);
           PlanetMassAtRestart[i] -= Menvelope[i];
           if (a <= WKZRMIN)
-            FinalPlanetMass[i]=0.0;
+           FinalPlanetMass[i]=0.0;
           MenvCount[i] = GetfromPlanetFile (NbRestart, 16, i); //Number of timesteps that the planet cound not accrete as much as it should
-       } else {
+        } else {
           PlanetMassAtRestart[i] = 0.0;
           Menvelope[i] = 0.0;
           MenvCount[i] = 0;
           MenvRemained[i] = 0.0;
-       }
-       MenvAccreted[i] = 0.0;
-       MenvRemoved[i] = 0.0;
-       sys->mass[i] = PlanetMassAtRestart[i];
-       MdotEnvelope[i] = deltamenv/Runtime;
-       if (MASSTAPER > 1e-3)
-         massinvelocity = 0.0;
-       else
-         massinvelocity = PlanetMassAtRestart[i];
-       /* This is done only the first time Fargo is called by Planete */
-       sys->x[i] = a*(1.0+e);
-       sys->y[i] = 0.0;
-       sys->a[i] = a;
-       sys->e[i] = e;
-       sys->vy[i] = (real)sqrt(G*(1.0+massinvelocity)/a)*       \
-          sqrt( (1.0-e)/(1.0+e) );
-       sys->vx[i] = -0.0000000001*sys->vy[i];
-       sys->acc[i] = 0.0; // since mass accretion is taken care of by Planete
-       if (fixedpls == 1) 
-         sys->FeelDisk[i] = sys->FeelOthers[i] = NO;
-       else 
-         sys->FeelDisk[i] = sys->FeelOthers[i] = YES;
-       sys->TorqueFlag[i] = NO;
-       sys->Binary[i] = NO;  // not implemented...
-       Mswitch[i] = MCRIFACTOR * pow(AspectRatio(a)*pow(a, FLARINGINDEX),3); 
-       if (sys->mass[i] < Mswitch[i])
-         sys->TorqueFlag[i] = YES;
-       if (FinalPlanetMass[i] == 0.0){
-         sys->FeelDisk[i] = NO;
-         sys->FeelOthers[i] = NO;
-       }
-       i++;
-       }
-     }
+        }
+        MenvAccreted[i] = 0.0;
+        MenvRemoved[i] = 0.0;
+        sys->mass[i] = PlanetMassAtRestart[i];
+        MdotEnvelope[i] = deltamenv/Runtime;
+        if (MASSTAPER > 1e-3)
+          massinvelocity = 0.0;
+        else
+          massinvelocity = PlanetMassAtRestart[i];
+        /* This is done only the first time Fargo is called by Planete */
+        sys->x[i] = a*(1.0+e);
+        sys->y[i] = 0.0;
+        sys->a[i] = a;
+        sys->e[i] = e;
+        sys->vy[i] = (real)sqrt(G*(1.0+massinvelocity)/a)*       \
+        sqrt( (1.0-e)/(1.0+e) );
+        sys->vx[i] = -0.0000000001*sys->vy[i];
+        sys->acc[i] = 0.0; // since mass accretion is taken care of by Planete
+        if (fixedpls == 1) 
+          sys->FeelDisk[i] = sys->FeelOthers[i] = NO;
+        else 
+          sys->FeelDisk[i] = sys->FeelOthers[i] = YES;
+        sys->TorqueFlag[i] = NO;
+        sys->Binary[i] = NO;  // not implemented...
+        Mswitch[i] = MCRIFACTOR * pow(AspectRatio(a)*pow(a, FLARINGINDEX),3); 
+        if (sys->mass[i] < Mswitch[i])
+          sys->TorqueFlag[i] = YES;
+        if (FinalPlanetMass[i] == 0.0) {
+          sys->FeelDisk[i] = NO;
+          sys->FeelOthers[i] = NO;
+        }
+        i++;
+      }
+    }
   }
   fclose(input);
   HillRadius = sys->x[0] * pow( sys->mass[0]/3., 1./3. );

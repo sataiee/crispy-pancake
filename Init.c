@@ -110,16 +110,15 @@ void Initialization (gas_density, gas_v_rad, gas_v_theta, gas_energy, gas_label,
         mastererr ("Can't write %s.\nProgram stopped.\n", OutputName);
         prs_exit (1);
       }
-      for (i = 0; i <= GLOBALNRAD; i++) {
-       fprintf (output, "%.18g\n", Radii[i]);
-      }
+      for (i = 0; i <= GLOBALNRAD; i++)
+        fprintf (output, "%.18g\n", Radii[i]);
       fclose (output);
     }
     MPI_Barrier (MPI_COMM_WORLD);
+    
     /* Don't start reading before master has finished rebining... */
     /* It shouldn't be a problem though since a sequential read is */
     /* imposed in the ReadfromFile function below */
-
     mastererr ("Reading restart files...\n");
     fflush (stderr);
     ReadfromFile (gas_density, "gasdens", NbRestart);
@@ -134,7 +133,7 @@ void Initialization (gas_density, gas_v_rad, gas_v_theta, gas_energy, gas_label,
         for (j=0; j<ns; j++) {
           l = i*ns + j;
           energ[l] = dens[l]*energ[l]/(ADIABATICINDEX-1.0);
-           /* this is e = dens*temp / (gamma-1) */
+          /* this is e = dens*temp / (gamma-1) */
         }
       }
     }
@@ -166,16 +165,16 @@ void Initialization (gas_density, gas_v_rad, gas_v_theta, gas_energy, gas_label,
     if (EnergyEquation)
       ComputeOpacities (gas_density, gas_energy);
     if (StoreSigma)
-      RefillSigma (gas_density);
+     RefillSigma (gas_density);
     if (StoreEnergy)
-      RefillEnergy (gas_energy);
+     RefillEnergy (gas_energy);
     fprintf (stderr, "done\n");
     fflush (stderr);
   }
   mpi_make1Dprofile (SoundSpeed->Field, axics);
   mpi_make1Dprofile (gas_density->Field, axidens);
   mpi_make1Dprofile (Temperature->Field, axitemp);
-  mpi_make1Dprofile (Opacity->Field, opaaxi);  
+  mpi_make1Dprofile (Opacity->Field, opaaxi);
   WriteDim (); 
 }
 
@@ -227,7 +226,7 @@ void EqInitialize(Rho, Energy)
       dens[l] = -mdot/3./PI/(ALPHAVISCOSITY * sqrt(ADIABATICINDEX) * temp[i] * pow(Rmed[i], 1.5));
       if ((AccBoundary) && (DecInner)) {
         if (Rmed[i] < (GlobalRmed[0]+dsmoothin))
-          dens[l] = (dens[l]-floordens) * exp(-pow(Rmed[i]-(GlobalRmed[0]+dsmoothin),2)/2./pow(dsmoothin,2)) + floordens;
+        dens[l] = (dens[l]-floordens) * exp(-pow(Rmed[i]-(GlobalRmed[0]+dsmoothin),2)/2./pow(dsmoothin,2)) + floordens;
       }
       energ[l] = temp[i] * dens[l] *R/MU/(ADIABATICINDEX-1);
     }

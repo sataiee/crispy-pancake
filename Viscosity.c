@@ -19,24 +19,22 @@ calling function.
 
 static PolarGrid *DRR, *DRP, *DPP;
 
-real FViscosity (rad)
-     real rad;
+real FViscosity (rad, cscell, sigcell)
+     real rad, cscell, sigcell;
 {
-  real viscosity, rmin, rmax, scale, nudot;
+  real viscosity, rmin, rmax, scale, nudot, alphanew;
   extern boolean ImposedAlpha;
   int i = 0;
   viscosity = VISCOSITY;
   if (ViscosityAlpha) {
-    while (GlobalRmed[i] < rad) i++;
     /* GLOBAL_bufarray contains global, axisymmetric soundspeed
        array */
     if (!ImposedAlpha) {
-      viscosity = ALPHAVISCOSITY*GLOBAL_bufarray[i]*	\
-	GLOBAL_bufarray[i]*pow(rad, 1.5);
+      viscosity = ALPHAVISCOSITY*cscell*cscell / sqrt(ADIABATICINDEX)*pow(rad, 1.5);
     } else {
+      while (GlobalRmed[i] < rad) i++;
       /* NEW Nov 2010: imposed radial profile for alpha parameter */
-      viscosity = GLOBAL_ImposedAlpha[i]*GLOBAL_bufarray[i]*	\
-	GLOBAL_bufarray[i]*pow(rad, 1.5);
+      viscosity = GLOBAL_ImposedAlpha[i]*cscell*cscell/pow(ADIABATICINDEX, 0.5)*pow(rad, 1.5);
     }
   }
   rmin = CAVITYRADIUS-CAVITYWIDTH*ASPECTRATIO;
@@ -58,8 +56,16 @@ real FViscosity (rad)
       viscosity = RELEASEVISCOSITY;
     }
   }
+  if ((*ALPHASIGMA == 'Y') || (*ALPHASIGMA == 'y')){
+    if (sigcell >= SIGMAACTIVE)
+      alphanew = ALPHADEAD + ALPHAACTIVE * exp(1-sigcell/SIGMAACTIVE);
+   else
+      alphanew = ALPHAACTIVE;
+   viscosity = alphanew * cscell*cscell / sqrt(ADIABATICINDEX)*pow(rad, 1.5);
+  }
    return viscosity;
 }
+
 
 real AspectRatio (rad)
      real rad;
@@ -115,62 +121,60 @@ void ComputeViscousTerms (RadialVelocity, AzimuthalVelocity, Rho)
   dphi = (PMAX-PMIN)/(real)ns;
   invdphi = 1.0/dphi;
   onethird = 1.0/3.0;
-  if (ViscosityAlpha)
-    mpi_make1Dprofile (cs, GLOBAL_bufarray);
 #pragma omp parallel private(l,lip,ljp,j,ljm,lim)
   {
 #pragma omp for nowait
-    for (i = 0; i < nr; i++) {	/* Drr, Dpp and divV computation */
+    for (i = 0; i < nr; i++) {  /* Drr, Dpp and divV computation */
       for (j = 0; j < ns; j++) {
-	l = j+i*ns;
-	lip = l+ns;
-	ljp = l+1;
-	if (j == ns-1) ljp = i*ns;
-	Drr[l] = (vr[lip]-vr[l])*InvDiffRsup[i];
-	Dpp[l] = (vt[ljp]-vt[l])*invdphi*InvRmed[i]+0.5*(vr[lip]+vr[l])*InvRmed[i];
-	divergence[l]  = (vr[lip]*Rsup[i]-vr[l]*Rinf[i])*InvDiffRsup[i]*InvRmed[i];
-	divergence[l] += (vt[ljp]-vt[l])*invdphi*InvRmed[i];
+        l = j+i*ns;
+        lip = l+ns;
+        ljp = l+1;
+        if (j == ns-1) ljp = i*ns;
+        Drr[l] = (vr[lip]-vr[l])*InvDiffRsup[i];
+        Dpp[l] = (vt[ljp]-vt[l])*invdphi*InvRmed[i]+0.5*(vr[lip]+vr[l])*InvRmed[i];
+        divergence[l]  = (vr[lip]*Rsup[i]-vr[l]*Rinf[i])*InvDiffRsup[i]*InvRmed[i];
+        divergence[l] += (vt[ljp]-vt[l])*invdphi*InvRmed[i];
       }
     }
 #pragma omp for
-    for (i = 1; i < nr; i++) {	/* Drp computation */
+    for (i = 1; i < nr; i++) {  /* Drp computation */
       for (j = 0; j < ns; j++) {
-	l = j+i*ns;
-	ljm = l-1;
-	if (j == 0) ljm = i*ns+ns-1;
-	lim = l-ns;
-	Drp[l] = 0.5*(Rinf[i]*(vt[l]*InvRmed[i]-vt[lim]*InvRmed[i-1])*InvDiffRmed[i]+ \
-		      (vr[l]-vr[ljm])*invdphi*InvRinf[i]);
+        l = j+i*ns;
+        ljm = l-1;
+        if (j == 0) ljm = i*ns+ns-1;
+        lim = l-ns;
+        Drp[l] = 0.5*(Rinf[i]*(vt[l]*InvRmed[i]-vt[lim]*InvRmed[i-1])*InvDiffRmed[i]+ \
+        (vr[l]-vr[ljm])*invdphi*InvRinf[i]);
       }
     }
   }
 #pragma omp parallel private(l,ljmim,j,ljm,lim,viscosity)
   {
 #pragma omp for nowait
-    for (i = 0; i < nr; i++) {	/* TAUrr and TAUpp computation */
-      if (ViscosityAlpha || (VISCOSITY != 0.0) )
-	viscosity = FViscosity (Rmed[i]);
+    for (i = 0; i < nr; i++) {  /* TAUrr and TAUpp computation */
       if (!ViscosityAlpha && (VISCOSITY == 0.0) )
-	viscosity = 0.0;
+        viscosity = 0.0;
       for (j = 0; j < ns; j++) {
-	l = j+i*ns;
-	Trr[l] = 2.0*rho[l]*viscosity*(Drr[l]-onethird*divergence[l]);
-	Tpp[l] = 2.0*rho[l]*viscosity*(Dpp[l]-onethird*divergence[l]);
+        l = j+i*ns;
+        if (ViscosityAlpha || (VISCOSITY != 0.0) )
+          viscosity = FViscosity (Rmed[i], cs[l], rho[l]);
+        Trr[l] = 2.0*rho[l]*viscosity*(Drr[l]-onethird*divergence[l]);
+        Tpp[l] = 2.0*rho[l]*viscosity*(Dpp[l]-onethird*divergence[l]);
       }
     }
 #pragma omp for
-    for (i = 1; i < nr; i++) {	/* TAUrp computation */
-      if (ViscosityAlpha || (VISCOSITY != 0.0) )
-	viscosity = FViscosity (Rmed[i]);
+    for (i = 1; i < nr; i++) {  /* TAUrp computation */
       if (!ViscosityAlpha && (VISCOSITY == 0.0) )
-	viscosity = 0.0;
+        viscosity = 0.0;
       for (j = 0; j < ns; j++) {
-	l = j+i*ns;
-	lim = l-ns;
-	ljm = l-1;
-	if (j == 0) ljm = i*ns+ns-1;
-	ljmim=ljm-ns;
-	Trp[l] = 2.0*0.25*(rho[l]+rho[lim]+rho[ljm]+rho[ljmim])*viscosity*Drp[l];
+        l = j+i*ns;
+        lim = l-ns;
+        ljm = l-1;
+        if (j == 0) ljm = i*ns+ns-1;
+        ljmim=ljm-ns;
+        if (ViscosityAlpha || (VISCOSITY != 0.0) )
+          viscosity = FViscosity (Rmed[i], cs[l], rho[l]);
+        Trp[l] = 2.0*0.25*(rho[l]+rho[lim]+rho[ljm]+rho[ljmim])*viscosity*Drp[l];
       }
     }
   }
@@ -202,29 +206,29 @@ void UpdateVelocitiesWithViscosity (RadialVelocity, AzimuthalVelocity, Rho, Delt
 #pragma omp parallel private(l,j,lip,ljp,ljm,lim)
   {
 #pragma omp for nowait
-    for (i = 1; i < nr-1; i++) {	/* vtheta first */
+    for (i = 1; i < nr-1; i++) {  /* vtheta first */
       for (j = 0; j < ns; j++) {
-	l = j+i*ns;
-	lip = l+ns;
-	ljp = l+1;
-	if (j == ns-1) ljp = i*ns;
-	ljm = l-1;
-	if (j == 0) ljm = i*ns+ns-1;
-	vt[l] += DeltaT*InvRmed[i]*((Rsup[i]*Trp[lip]-Rinf[i]*Trp[l])*InvDiffRsup[i]+ \
-				    (Tpp[l]-Tpp[ljm])*invdphi+		\
-				    0.5*(Trp[l]+Trp[lip]))/(0.5*(rho[l]+rho[ljm]));
+        l = j+i*ns;
+        lip = l+ns;
+        ljp = l+1;
+        if (j == ns-1) ljp = i*ns;
+        ljm = l-1;
+        if (j == 0) ljm = i*ns+ns-1;
+        vt[l] += DeltaT*InvRmed[i]*((Rsup[i]*Trp[lip]-Rinf[i]*Trp[l])*InvDiffRsup[i]+ \
+              (Tpp[l]-Tpp[ljm])*invdphi+    \
+               0.5*(Trp[l]+Trp[lip]))/(0.5*(rho[l]+rho[ljm]));
       }
     }
-#pragma omp for nowait
-    for (i = 1; i < nr; i++) {	/* and now vrad */
+    #pragma omp for nowait
+    for (i = 1; i < nr; i++) {  /* and now vrad */
       for (j = 0; j < ns; j++) {
-	l = j+i*ns;
-	lim = l-ns;
-	ljp = l+1;
-	if (j == ns-1) ljp = i*ns;
-	vr[l] += DeltaT*InvRinf[i]*((Rmed[i]*Trr[l]-Rmed[i-1]*Trr[lim])*InvDiffRmed[i]+ \
-				    (Trp[ljp]-Trp[l])*invdphi-		\
-				    0.5*(Tpp[l]+Tpp[lim]))/(0.5*(rho[l]+rho[lim]));
+        l = j+i*ns;
+        lim = l-ns;
+        ljp = l+1;
+        if (j == ns-1) ljp = i*ns;
+        vr[l] += DeltaT*InvRinf[i]*((Rmed[i]*Trr[l]-Rmed[i-1]*Trr[lim])*InvDiffRmed[i]+ \
+                (Trp[ljp]-Trp[l])*invdphi-    \
+                0.5*(Tpp[l]+Tpp[lim]))/(0.5*(rho[l]+rho[lim]));
       }
     }
   }
