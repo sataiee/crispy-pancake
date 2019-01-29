@@ -71,3 +71,4 @@ extern int MenvCount[MAX1D];
 extern boolean IrradStar;
 extern real qirrad[MAX1D], tstar, rstar;
 extern boolean TeffCal;
+extern boolean CorrectVgasSG;

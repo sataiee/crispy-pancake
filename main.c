@@ -183,6 +183,11 @@ main(argc, argv)
   /* Here planets are initialized feeling star potential but they do
      not feel disk potential */
   sys = InitPlanetarySystem (PLANETCONFIG,NbRestart, gas_density, force);   
+  //The axi-symmetric part of the SG acceleration on the disc Kley1996
+  real *SGAarray;
+  SGAarray = (real *)malloc(sizeof(real) * GLOBALNRAD*(GLOBALNRAD+1)); //rows: GLOBALNRAD (rmed locations), cols: GLOBALNRAD+1 (interfaces)
+  if (CorrectVgasSG)
+    CalculateAxiSGDiskPotentialTools(SGAarray);
   if ( SelfGravity ) {
     /* If SelfGravity = YES or Z, planets are initialized feeling disk
        potential. Only the surface density is required to calculate
@@ -218,7 +223,7 @@ main(argc, argv)
     }
   }
   /* Only gas velocities remain to be initialized */
-  Initialization (gas_density, gas_v_rad, gas_v_theta, gas_energy, gas_label, sys);
+  Initialization (gas_density, gas_v_rad, gas_v_theta, gas_energy, gas_label, sys, SGAarray);
   /* Initial gas_density is used to compute the circumplanetary mass
      with initial density field */
   mdcp0 = CircumPlanetaryMass (gas_density, sys);
@@ -286,7 +291,7 @@ main(argc, argv)
     /* Hydrodynamical Part */
     /***********************/
     InitSpecificTime (Profiling, &t_Hydro, "Eulerian Hydro algorithms");
-    AlgoGas (force, gas_density, gas_v_rad, gas_v_theta, gas_energy, gas_label, sys);
+    AlgoGas (force, gas_density, gas_v_rad, gas_v_theta, gas_energy, gas_label, sys, SGAarray);
     GiveSpecificTime (Profiling, t_Hydro);
     
     if (MonitorIntegral == YES) {
@@ -341,7 +346,7 @@ main(argc, argv)
       /* Hydrodynamical Part */
       /***********************/
       InitSpecificTime (Profiling, &t_Hydro, "Eulerian Hydro algorithms");
-      AlgoGas (force, gas_density, gas_v_rad, gas_v_theta, gas_energy, gas_label, sys);
+      AlgoGas (force, gas_density, gas_v_rad, gas_v_theta, gas_energy, gas_label, sys, SGAarray);
       GiveSpecificTime (Profiling, t_Hydro);
       if (MonitorIntegral == YES) {
         CheckMomentumConservation (gas_density, gas_v_theta, sys);

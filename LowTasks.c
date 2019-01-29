@@ -83,8 +83,7 @@ void message (msg)
   fprintf (stdout, "%s", msg);
 }
 
-PolarGrid    *
-CreatePolarGrid(Nr, Ns, name)
+PolarGrid    *CreatePolarGrid(Nr, Ns, name)
 int             Nr, Ns;
 char           *name;
 {
@@ -257,3 +256,4 @@ void LinearInterpole(X, r, coeff, N1, N2)
   coeff[0] = (N*sigXr-sigr*sigX) / (N*sigr2-sigr*sigr);
   coeff[1] = (sigXr*sigr-sigX*sigr2) / (sigr*sigr-N*sigr2);
 }
+

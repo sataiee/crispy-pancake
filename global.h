@@ -66,3 +66,4 @@ int MenvCount[MAX1D];
 boolean IrradStar;
 real qirrad[MAX1D], tstar, rstar;
 boolean TeffCal;
+boolean CorrectVgasSG;

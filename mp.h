@@ -6,6 +6,7 @@
 #include "fondam.h"
 #include "types.h"
 #include "proto.h"
+#include <assert.h>
 /* PARALLEL LIBS */
 #ifdef _PARALLEL
 #include <mpi.h>

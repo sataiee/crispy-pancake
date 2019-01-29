@@ -229,6 +229,7 @@ Force *force;
        sys->Binary[i] = binary;
        sys->TorqueFlag[i] = NO;
        if ((feeldis == YES) && ((*CORRECTVPLANET == 'Y') || (*CORRECTVPLANET == 'y'))) {
+         CorrectVgasSG = YES;
          gamma = ComputeAccel (force, Rho, sys->x[i], sys->y[i], massinvelocity, sys, 2);
          gamma.x -= (1.0+MassInside)/dist/dist;
          sys->vy[i] = sqrt(dist*fabs(gamma.x)); // This condition is only for circular planets

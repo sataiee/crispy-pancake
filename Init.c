@@ -84,9 +84,10 @@ void InitLabel (array, sys)
   }
 }
 
-void Initialization (gas_density, gas_v_rad, gas_v_theta, gas_energy, gas_label, pla_sys)
+void Initialization (gas_density, gas_v_rad, gas_v_theta, gas_energy, gas_label, pla_sys, SGAarray)
      PolarGrid *gas_density, *gas_v_rad, *gas_v_theta, *gas_energy, *gas_label;
      PlanetarySystem *pla_sys;
+     real *SGAarray;
 {
   extern boolean EnergyEquation, ThermalDiffusion, ThermalCooling, RadiativeDiffusion, FargoPlanete;
   extern int NbRestart;
@@ -97,7 +98,7 @@ void Initialization (gas_density, gas_v_rad, gas_v_theta, gas_energy, gas_label,
   nr = gas_energy->Nrad;
   ns = gas_energy->Nsec;
   ReadPrevDim ();
-  InitEuler (gas_v_rad, gas_v_theta, gas_density, gas_energy, pla_sys);
+  InitEuler (gas_v_rad, gas_v_theta, gas_density, gas_energy, pla_sys, SGAarray);
   InitLabel (gas_label, pla_sys);
   if (Restart == YES) {
     CheckRebin (NbRestart);

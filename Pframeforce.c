@@ -21,7 +21,7 @@ extern boolean AllowAccretion, Indirect_Term;
 extern Pair DiskOnPrimaryAcceleration;
 static Pair IndirectTerm;
 static real q0[MAX1D], q1[MAX1D], PlanetMasses[MAX1D];
-static real vt_int[MAX1D], vt_cent[MAX1D];
+static real vt_int[MAX1D], vt_cent[MAX1D], vt_axisg[MAX1D];
 extern boolean OneDRun, SmoothAtPlanet;
 
 void ComputeIndirectTerm () {
@@ -34,16 +34,17 @@ void ComputeIndirectTerm () {
 }
 /* Below : work in non-rotating frame */
 /* centered on the primary */
-void FillForcesArrays (sys, Rho, Energy, Vtheta, dt)
+void FillForcesArrays (sys, Rho, Energy, Vtheta, dt, SGAarray)
      PlanetarySystem *sys;
      PolarGrid *Rho, *Energy, *Vtheta;
      real dt;
+     real *SGAarray;
 {
   int i, j, l, nr, ns, k, NbPlanets, iplanet, ii;
   real x, y, angle, distance, distancesmooth, frac, csp;
   real xplanet, yplanet, RRoche,smooth, mplanet;
   real PlanetDistance, *Pot, pot=0, smoothing;
-  //real *test;
+  real SGAxiPot[GLOBALNRAD];
   real InvPlanetDistance3, InvDistance;
   real *cs;
   extern boolean MHDLSA;
@@ -52,14 +53,20 @@ void FillForcesArrays (sys, Rho, Energy, Vtheta, dt)
   nr = Potential->Nrad;
   ns = Potential->Nsec;
   NbPlanets = sys->nb;
-  //test = Test->Field;
-
   /* Indirect term star on gas here */
   ComputeIndirectTerm ();
-
 #pragma omp parallel for
   for (i = 0; i < (nr+1)*ns; i++) Pot[i] = 0.0;
-  //for (i = 0; i < (nr+1)*ns; i++) test[i] = 0.0;
+  /* Here we calculate and apply the axi-symmetric SG acceleration on the disc elements */
+  if (CorrectVgasSG){
+    for (i = 0; i < GLOBALNRAD; i++){
+      SGAxiPot[i] = 0.0; 
+      for (j = 0; j < GLOBALNRAD; j++){
+        l = i * (GLOBALNRAD+1) + j;
+        SGAxiPot[i] += -4 * axidens[j] * (Radii[j+1]*SGAarray[l+1] - Radii[j] * SGAarray[l]);
+      }
+    }
+  }
   /* -- Gravitational potential from planet on gas -- */
   for (k = 0; k < NbPlanets; k++) {
     xplanet = sys->x[k];
@@ -77,10 +84,11 @@ void FillForcesArrays (sys, Rho, Energy, Vtheta, dt)
       csp = axics[ii]*(1.0-frac)+axics[ii+1]*frac;
       smoothing = csp * PlanetDistance * sqrt(PlanetDistance) * THICKNESSSMOOTHING;
     }
-    #pragma omp parallel for private(InvDistance,j,l,angle,x,y,distance,distancesmooth,pot)
+#pragma omp parallel for private(InvDistance,j,l,angle,x,y,distance,distancesmooth,pot)
     for (i = 0; i < nr; i++) {
       InvDistance = 1.0/Rmed[i];
       for (j = 0; j < ns; j++) {
+        pot = 0.0;
         l = j+i*ns;
         angle = azimuth[j];
         x = Rmed[i]*cos(angle);
@@ -98,6 +106,8 @@ void FillForcesArrays (sys, Rho, Energy, Vtheta, dt)
           pot = -G*mplanet/distancesmooth; /* Direct term from planet */
           if (Indirect_Term == YES)
             pot += G*mplanet*InvPlanetDistance3*(x*xplanet+y*yplanet); /* Indirect term from planet  */
+          if (CorrectVgasSG)
+            pot += SGAxiPot[i+IMIN];
         }
         Pot[l] += pot;
       }
@@ -131,7 +141,7 @@ void AdvanceSystemFromDisk (force, Rho, Energy, sys, dt)
      PolarGrid *Rho, *Energy;
      real dt;           
 {
-  int NbPlanets, k, ip;
+  int NbPlanets, k;
   Pair gamma, accel;
   real x, y, r, m, smoothing, omega, taumig, vdotr, vx, vy;
   extern boolean ForcedCircularTemp;
@@ -142,7 +152,6 @@ void AdvanceSystemFromDisk (force, Rho, Energy, sys, dt)
       x = sys->x[k];
       y = sys->y[k];
       r = sqrt(x*x + y*y);
-      ip = ReturnIndex(r);
       if (RocheSmoothing)
         smoothing = r*pow(m/3.,1./3.)*ROCHESMOOTHING;
       else
@@ -464,8 +473,9 @@ void InitGasEnergy (energ)
     FillPrescTime();
 }
 
-void InitGasVelocities (Vr, Vt, Rho)
+void InitGasVelocities (Vr, Vt, Rho, SGAarray)
      PolarGrid *Vr, *Vt, *Rho;
+     real *SGAarray;
 {
   extern boolean SGZeroMode, AccBoundary;
   extern boolean SelfGravity, InitEquilibrium, MdotHartmann;
@@ -473,7 +483,7 @@ void InitGasVelocities (Vr, Vt, Rho)
   real *vr, *vt, *pres, *cs, *dens, mdot;
   real  r, omega, ri, moy;
   real viscosity, t1, t2, r1, r2;
-  real axipres[GLOBALNRAD];
+  real axipres[GLOBALNRAD], phii, phii1, SGAxiPot[GLOBALNRAD];
   vr  = Vr->Field;
   vt  = Vt->Field;
   nr  = Vt->Nrad;
@@ -490,9 +500,10 @@ void InitGasVelocities (Vr, Vt, Rho)
   /* --------- */
   // Initialization of azimutal velocity with exact centrifugal balance
   /* --------- */
+  if ( CentrifugalBalance | CorrectVgasSG)
+    mpi_make1Dprofile (pres, axipres);
   if ( CentrifugalBalance ) {
     /* vt_int \equiv rOmega = grad(P)/sigma +  \partial(phi)/\partial(r)  -  acc_sg_radial */
-    mpi_make1Dprofile (pres, axipres);
     /* global axisymmetric pressure field, known by all cpus*/
     for (i = 1; i < GLOBALNRAD; i++) {
       vt_int[i] = ( axipres[i] - axipres[i-1] ) /  \
@@ -527,6 +538,34 @@ void InitGasVelocities (Vr, Vt, Rho)
   if (SelfGravity && !CentrifugalBalance)
     init_azimutalvelocity_withSG (Vt);
   /* --------- */
+  /* It turns out without changing the initial velocities, the damping boundary 
+   * behaves better. When we have this stage, a bump in the surface density profile
+   * appears close to the damping zone that implies the initial profiles are not the 
+   * equilibrium ones. For now, I remove this section 
+  if ( CorrectVgasSG ){
+    mpi_make1Dprofile (dens, axidens);
+    for (i = 0; i < GLOBALNRAD; i++){
+      SGAxiPot[i] = 0.0; 
+      for (j = 0; j < GLOBALNRAD; j++){
+        l = i * (GLOBALNRAD+1) + j;
+        SGAxiPot[i] += -4 * axidens[j] * (Radii[j+1]*SGAarray[l+1] - Radii[j] * SGAarray[l]);
+      }
+    }
+    for (i = 1; i < GLOBALNRAD; i++ ){
+       /*vt_int \equiv rOmega = grad(P)/sigma +  \partial(phi)/\partial(r) 
+       * where phi is the potential from the star and the disc */
+      /*phii = -G*1.0/GlobalRmed[i] + SGAxiPot[i];
+      phii1 = -G*1.0/GlobalRmed[i-1] + SGAxiPot[i-1];
+      vt_axisg[i] = ( axipres[i] - axipres[i-1] ) / \
+                    (.5*(Sigma(GlobalRmed[i])+Sigma(GlobalRmed[i-1])))/(GlobalRmed[i]-GlobalRmed[i-1]) + \
+                    ( phii - phii1) / (GlobalRmed[i] - GlobalRmed[i-1]);
+    }
+    //Extrapolation for the inner ring
+    vt_axisg[0] = vt_axisg[1] - (vt_axisg[2] - vt_axisg[1])/\
+                             (GlobalRmed[2]-GlobalRmed[1]) * (GlobalRmed[1]-GlobalRmed[0]);  
+    for (i = 0; i < GLOBALNRAD; i++)
+      vt_axisg[i] = sqrt(vt_axisg[i]*Radii[i])-Radii[i]*OmegaFrame;                                                        
+  }*/
 
   for (i = 0; i <= nr; i++) {
     if (i == nr) {
@@ -549,6 +588,8 @@ void InitGasVelocities (Vr, Vt, Rho)
             pow(r,2.0*FLARINGINDEX)*      \
             (1.+SIGMASLOPE-2.0*FLARINGINDEX) );
       }
+      /*if (CorrectVgasSG)
+        vt[l] = vt_axisg[i+IMIN];*/
       /* --------- */
       vt[l] -= OmegaFrame*r;
       if (CentrifugalBalance)

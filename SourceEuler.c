@@ -137,9 +137,10 @@ void FillPolar1DArrays ()
   }
 }
 
-void InitEuler (Vr, Vt, Rho, Energy, sys)
+void InitEuler (Vr, Vt, Rho, Energy, sys, SGAarray)
      PolarGrid *Vr, *Vt, *Rho, *Energy;
      PlanetarySystem *sys;
+     real *SGAarray;
 {
   extern boolean ImposedAlpha, InitEquilibrium;;
   InitTransport ();
@@ -175,7 +176,7 @@ void InitEuler (Vr, Vt, Rho, Energy, sys)
   ComputeSoundSpeed (Rho, Energy, sys);
   ComputePressureField (Rho, Energy);
   ComputeTemperatureField (Rho, Energy);
-  InitGasVelocities (Vr, Vt, Rho);
+  InitGasVelocities (Vr, Vt, Rho, SGAarray);
   /* To output heating source terms at t=0... */
   if (EnergyEquation)
      ComputeOpacities (Rho, Energy);
@@ -226,10 +227,11 @@ void ActualiseGas (array, newarray)
 }
 
 
-void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys)
+void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys, SGAarray)
      Force *force;
      PolarGrid *Rho, *Vrad, *Vtheta, *Energy, *Label;
      PlanetarySystem *sys;
+     real *SGAarray;
 {
   real dthydro, dtnbody, dt, buf, dtemp=0.0;
   real xk, xj, yk, yj, mk, mj, dist;
@@ -351,7 +353,7 @@ void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys)
       /* Indirect term of star potential */
       DiskOnPrimaryAcceleration   = ComputeAccel (force, Rho, 0.0, 0.0, 0.0, sys, 2);
       /* Gravitational potential from star and planet(s) */
-      FillForcesArrays (sys, Rho, Energy, Vtheta, dt);
+      FillForcesArrays (sys, Rho, Energy, Vtheta, dt, SGAarray);
       /* Planets' velocities are updated with gravitationnal
       interaction with disk */
       AdvanceSystemFromDisk (force, Rho, Energy, sys, dt);
