@@ -42,7 +42,7 @@ boolean         DiscEvaporation = NO;
 boolean         CustomizedIT = NO;
 boolean         FargoPlanete = NO, ExponentialDecay = NO;
 boolean         PhotoEvapor = NO, AccBoundary = NO, Write_Sigdot, MdotHartmann = NO, DecInner = NO, OpInner = NO, StellarIrradiation=NO, Alexboundary=NO;
-boolean         InitEquilibrium = NO, Write_OneD_Viscosity = NO, SmoothAtPlanet = NO;
+boolean         InitEquilibrium = NO, Write_OneD_Viscosity = NO, SmoothAtPlanet = NO, WriteForces = NO;
 
 void var(name, ptr, type, necessary, deflt)
      char           *name;
@@ -466,6 +466,8 @@ void ReadVariables(filename)
   }
   if ((*WRITEONEDVISC == 'Y') || (*WRITEONEDVISC == 'y'))
     Write_OneD_Viscosity = YES;
+  if ( (*WRITEFORCES == 'Y') || (*WRITEFORCES == 'y'))
+    WriteForces = YES;
 }
 
 void PrintUsage (execname)

@@ -23,7 +23,7 @@ accounted for.
 
 #include "mp.h"
 
-extern boolean OpenInner, NonReflecting;
+extern boolean OpenInner, NonReflecting, WriteForces;
 extern Pair DiskOnPrimaryAcceleration;
 
 Force *AllocateForce (dimfxy)
@@ -281,8 +281,8 @@ void UpdateLog (fc, psys, Rho, Energy, outputnb, time, dimfxy)
   int i, nb;
   real x, y, r, m, vx, vy, smoothing;
   real *globalforce;
-  FILE *out;
-  char filename[MAX1D];
+  FILE *out, *outforce;
+  char filename[MAX1D], fileforce[MAX1D];
   Pair accelfoo; //This is not used in calculation
   nb = psys->nb;
   for (i = 0; i < nb; i++) {
@@ -311,6 +311,14 @@ void UpdateLog (fc, psys, Rho, Energy, outputnb, time, dimfxy)
         fprintf (stderr, "Can't open %s\n", filename);
         fprintf (stderr, "Aborted.\n");
       }
+      if (WriteForces){
+        sprintf (fileforce, "%sforces%d.dat", OUTPUTDIR, i);
+        outforce = fopen (fileforce, "a");
+        if (outforce == NULL) {
+	        fprintf (stderr, "Can't open %s\n", fileforce);
+        	fprintf (stderr, "Aborted.\n");
+        }
+      }
       if (psys->TorqueFlag[i]){
         fprintf (out, "%d\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\n", outputnb, \
           fc->fy_inner,        \
@@ -335,6 +343,18 @@ void UpdateLog (fc, psys, Rho, Energy, outputnb, time, dimfxy)
           vx*fc->fx_ex_inner+vy*fc->fy_ex_inner,      \
           vx*fc->fx_ex_outer+vy*fc->fy_ex_outer, time);
         fclose (out);
+        if (WriteForces){
+             fprintf (outforce, "%d\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\t%.18g\n", outputnb, \
+               fc->fx_inner, \
+               fc->fy_inner, \
+               fc->fx_outer, \
+               fc->fy_outer,			\
+               fc->fx_ex_inner,				\
+               fc->fy_ex_inner,				\
+               fc->fx_ex_outer,			\
+               fc->fy_ex_outer, time);
+              fclose(outforce);
+        }
       } 
     }
   }

@@ -156,4 +156,5 @@ InitVariables()
   var("FORCEDCIRCULARTEMPORARY", FORCEDCIRCULARTEMPORARY, STRING, NO, "NO");
   var("SMOOTHINGAT", SMOOTHINGAT, STRING, NO, "Disc"); //If it is p (means planet), the smoothing length is calculated at the planet's location
   var("CORRECTVPLANET", CORRECTVPLANET, STRING, NO, "NO");
+  var("WRITEFORCES", WRITEFORCES, STRING, NO, "NO"); //If yes, the force will be written for each planet in a file named forces.
 }

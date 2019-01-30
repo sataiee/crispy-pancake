@@ -151,3 +151,4 @@ extern	char	IMPOSEDGAMMA[512];
 extern	char	FORCEDCIRCULARTEMPORARY[512];
 extern	char	SMOOTHINGAT[512];
 extern	char	CORRECTVPLANET[512];
+extern	char	WRITEFORCES[512];
