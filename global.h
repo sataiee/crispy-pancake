@@ -33,7 +33,7 @@ real FinalPlanetMass[MAX1D], PlanetMassAtRestart[MAX1D];
 real VMed[MAX1D];
 real GLOBAL_ImposedAlpha[MAX1D];
 real OmegaFrame, PhysicalTime=0.0, PhysicalTimeInitial, FinalTime;
-int TimeStep=0,BigTimeStep=0;
+int TimeStep=0;
 real HillRadius, mdcp, mdcp0, exces_mdcp;
 real axics[MAX1D];  // Azimuthally avaraged sound speed
 real axidens[MAX1D];  // Azimuthally avaraged surface density

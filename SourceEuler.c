@@ -489,6 +489,10 @@ void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys, SGAarray)
     mpi_make1Dprofile (Opacity->Field, opaaxi);
     PhysicalTime += dt;
   }
+  UpdateLog (force, sys, Rho, Energy, TimeStep, PhysicalTime, dimfxy);
+  WriteBigPlanetSystemFile (sys, TimeStep);
+  SolveOrbits (sys,1);
+
   masterprint ("\n");
   free(Mswitch);
 }

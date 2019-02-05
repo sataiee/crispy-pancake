@@ -11,13 +11,13 @@ boolean         Restart = NO, OpenInner = NO;
 boolean         OneDRun = NO;
 int             begin_i = 0, NbRestart = 0, verbose = NO;
 int             dimfxy = 2;
-static int      InnerOutputCounter=0, StillWriteOneOutput;
+static int      StillWriteOneOutput;
 extern real     LostMass;
 extern boolean  Corotating, ReadPlanetFileAtRestart, Write_OneD_Fields;
 extern boolean  CorotateWithOuterPlanet, DiscEvaporation, FargoPlanete;
 extern boolean  SelfGravity, SGZeroMode, EnergyEquation, SoftWriting;
 real            ScalingFactor = 1.0;
-real            Runtime = 0.0, PhysicalTimeLast;
+real            Runtime = 0.0;
 extern boolean  Write_Sigdot;
 real            Mdisc0 = 0.0;
 
@@ -252,7 +252,6 @@ main(argc, argv)
   if (MonitorIntegral == YES)
     CheckMomentumConservation (gas_density, gas_v_theta, sys);
   PhysicalTimeInitial = PhysicalTime;
-  PhysicalTimeLast = PhysicalTime;
   if (Runtime > 0.0) {
     FinalTime = PhysicalTimeInitial + Runtime;
     masterprint ("Running time is imposed by user, equals %lg\n",Runtime);
@@ -263,21 +262,18 @@ main(argc, argv)
   /* OUTPUTS FIRST TIME */
   if (!FargoPlanete){
     TimeStep = NbRestart+1;
-    BigTimeStep = TimeStep;
   } else {
     if (NbRestart == 0) {
-    DiskMass = GasTotalMass(gas_density);
-    SendOutput (TimeStep, gas_density, gas_v_rad, gas_v_theta, gas_energy, gas_label, sys);
-    WritePlanetSystemFile (sys, TimeStep);
-    WriteMassTrack (TimeStep, DiskMass, EvapMass, AccMassPls);
-    WriteBigPlanetSystemFile (sys, BigTimeStep);
-    SolveOrbits (sys,1);
-    UpdateLog (force, sys, gas_density, gas_energy, BigTimeStep, PhysicalTime, dimfxy);
-    BigTimeStep++;
-    TimeStep++;
+      DiskMass = GasTotalMass(gas_density);
+      SendOutput (TimeStep, gas_density, gas_v_rad, gas_v_theta, gas_energy, gas_label, sys);
+      WritePlanetSystemFile (sys, TimeStep);
+      WriteMassTrack (TimeStep, DiskMass, EvapMass, AccMassPls);
+      WriteBigPlanetSystemFile (sys, TimeStep);
+      SolveOrbits (sys,1);
+      UpdateLog (force, sys, gas_density, gas_energy, TimeStep, PhysicalTime, dimfxy);
+      TimeStep++;
     } else {    
-    TimeStep = NbRestart+1;
-    BigTimeStep = TimeStep;
+      TimeStep = NbRestart+1;
     }
   }
   /* --------- */
@@ -285,61 +281,38 @@ main(argc, argv)
   /* --------- */
   if (FargoPlanete){
     while (PhysicalTime <= FinalTime) {
-    InnerOutputCounter++;
-    /* Algorithm loop begins here */
-    /***********************/
-    /* Hydrodynamical Part */
-    /***********************/
-    InitSpecificTime (Profiling, &t_Hydro, "Eulerian Hydro algorithms");
-    AlgoGas (force, gas_density, gas_v_rad, gas_v_theta, gas_energy, gas_label, sys, SGAarray);
-    GiveSpecificTime (Profiling, t_Hydro);
-    
-    if (MonitorIntegral == YES) {
-      CheckMomentumConservation (gas_density, gas_v_theta, sys);
-      masterprint ("Gas Momentum   : %.18g\n", GasMomentum (gas_density, gas_v_theta));
-      masterprint ("Gas total Mass : %.18g\n", GasTotalMass (gas_density));
-      masterprint ("Gas total Energy : %.18g\n", GasTotalEnergy (gas_density, gas_v_rad, gas_v_theta, gas_energy));
-    }
-    /* Write frequent outputs */
-    if ( (fabs(PhysicalTime-PhysicalTimeLast) > DT) && !SoftWriting ) {
-      WriteBigPlanetSystemFile (sys, TimeStep);
-      SolveOrbits (sys,0);
-      UpdateLog (force, sys, gas_density, gas_energy, TimeStep, PhysicalTime, dimfxy, DT );
-      // DT is just a value to pass to AccelFromFormula, but it is not needed to be correct value.
-//      BigTimeStep++;
-      PhysicalTimeLast=PhysicalTime;
-    } 
+      /* Algorithm loop begins here */
+      /***********************/
+      /* Hydrodynamical Part */
+      /***********************/
+      InitSpecificTime (Profiling, &t_Hydro, "Eulerian Hydro algorithms");
+      AlgoGas (force, gas_density, gas_v_rad, gas_v_theta, gas_energy, gas_label, sys, SGAarray);
+      GiveSpecificTime (Profiling, t_Hydro);
+      
+      if (MonitorIntegral == YES) {
+        CheckMomentumConservation (gas_density, gas_v_theta, sys);
+        masterprint ("Gas Momentum   : %.18g\n", GasMomentum (gas_density, gas_v_theta));
+        masterprint ("Gas total Mass : %.18g\n", GasTotalMass (gas_density));
+        masterprint ("Gas total Energy : %.18g\n", GasTotalEnergy (gas_density, gas_v_rad, gas_v_theta, gas_energy));
+      }
     }
     /* OUTPUTS AT LAST TIMESTEP */
     DiskMass = GasTotalMass(gas_density);
     SendOutput (TimeStep, gas_density, gas_v_rad, gas_v_theta, gas_energy, gas_label,sys);
     WritePlanetSystemFile (sys, TimeStep);
     WriteMassTrack (TimeStep, DiskMass, EvapMass, AccMassPls);
-    WriteBigPlanetSystemFile (sys, BigTimeStep);
+    WriteBigPlanetSystemFile (sys, TimeStep);
     SolveOrbits (sys,1);
     UpdateLog (force, sys, gas_density, gas_energy, TimeStep, PhysicalTime, dimfxy);
   } else {
     for (i = begin_i; i <= NTOT; i++) {
-      InnerOutputCounter++;
-      /* Write frequent outputs */
-      if ( (fabs(PhysicalTime-PhysicalTimeLast) >= DT) && !SoftWriting ) {
-        UpdateLog (force, sys, gas_density, gas_energy, TimeStep, PhysicalTime, dimfxy);
-        // DT is just a value to pass to AccelFromFormula, but it is not needed to be correct value.
-        BigTimeStep++;
-        WriteBigPlanetSystemFile (sys, TimeStep);
-        PhysicalTimeLast=PhysicalTime;
-        SolveOrbits (sys,1);
-      } 
       if (NINTERM * (TimeStep = (i / NINTERM)) == i){
         DiskMass = GasTotalMass(gas_density);
         SendOutput (TimeStep, gas_density, gas_v_rad, gas_v_theta, gas_energy, gas_label,sys);
         WritePlanetSystemFile (sys, TimeStep);
         WriteMassTrack (sys, TimeStep, DiskMass, EvapMass, AccMassPls);
         if (Write_Sigdot)
-        WriteSigmaDotFile(TimeStep);
-        UpdateLog (force, sys, gas_density, gas_energy, TimeStep, PhysicalTime, dimfxy);  
-        WriteBigPlanetSystemFile (sys, TimeStep);
-        SolveOrbits (sys,1);
+          WriteSigmaDotFile(TimeStep);
       }
       /* Algorithm loop begins here */
       /***********************/
