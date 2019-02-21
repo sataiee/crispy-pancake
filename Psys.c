@@ -127,7 +127,7 @@ Force *force;
   char s[512], nm[512], test1[512], test2[512], test3[512], *s1;
   PlanetarySystem *sys;
   int i=0, j, nb, counter, nbplanets, fixedpls, Foo, ii, nr, ns, l;
-  float mass, dist, accret, eccentricity;
+  float mass, dist, accret, eccentricity, azimuth, vr, vtheta;
   real MassInside=0, *cs;
   Pair gamma;
   extern real Runtime;
@@ -169,7 +169,7 @@ Force *force;
       sscanf(s, "%s ", nm);
       if (isalpha(s[0])) {
        s1 = s + strlen(nm);
-       sscanf(s1 + strspn(s1, "\t :=>_"), "%f %f %f %s %s %s %f", &dist, &mass, &accret, test1, test2, test3, &eccentricity);
+       sscanf(s1 + strspn(s1, "\t :=>_"), "%f %f %f %s %s %s %f %f", &dist, &mass, &accret, test1, test2, test3, &eccentricity, &azimuth);
        if ( CICPlanet ) {
          /* initialization puts planet at the interface between two
             cells (with eccentricity = 0 only) */
@@ -219,8 +219,8 @@ Force *force;
           the planet evolution */
        if (tolower(*test3) == 'y') binary = YES;
        MassInside += massinvelocity;
-       sys->x[i] = (real)dist*(1.0+eccentricity);
-       sys->y[i] = 0.0;
+       sys->x[i] = (real)dist*(1.0+eccentricity)*cos(azimuth);
+       sys->y[i] = (real)dist*(1.0+eccentricity)*sin(azimuth);
        sys->a[i] = (real)dist;
        sys->e[i] = eccentricity;
        sys->acc[i] = accret;
@@ -229,15 +229,19 @@ Force *force;
        sys->Binary[i] = binary;
        sys->TorqueFlag[i] = NO;
        if ((feeldis == YES) && ((*CORRECTVPLANET == 'Y') || (*CORRECTVPLANET == 'y'))) {
+         if (eccentricity > 0.0)
+           mastererr("When you are using the correction for the planetary mass,\
+                      you cannot have non-zero eccentricity.\n");
          CorrectVgasSG = YES;
          gamma = ComputeAccel (force, Rho, sys->x[i], sys->y[i], massinvelocity, sys, 2);
          gamma.x -= (1.0+MassInside)/dist/dist;
-         sys->vy[i] = sqrt(dist*fabs(gamma.x)); // This condition is only for circular planets
-         sys->e[i] = 0.0;
+         vtheta = sqrt(dist*fabs(gamma.x)); // This condition is only for circular planets
        } else {
          sys->vy[i] = sqrt((1.0+MassInside)/dist)*sqrt( (1.0-eccentricity)/(1.0+eccentricity) );
        }
-       sys->vx[i] = 0.0;
+       vr = 0.0;
+       sys->vy[i] = vr*sin(azimuth) + vtheta*cos(azimuth);
+       sys->vx[i] = vr*cos(azimuth) + vtheta*sin(azimuth);
        i++;
       }
     }
