@@ -1051,7 +1051,7 @@ real OpacityOriginal(phys_dens, phys_temp)
 real opLBL94 (rho3d, temp)
    real rho3d, temp;
 {
-   real power[3] = {2.8369e-2, 1.1464e-2, 2.2667e-1};
+   real power[3] = {4.44444444e-2, 2.381e-2, 2.2667e-1};
    real trans[3] = {1.46e3, 4.51e3, 2.37e6};
 //   coefficients for opacity laws 1, 2, and 3 in cgs units.
    real ak[3] = {2.e-4, 2.e16, 0.1};
