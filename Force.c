@@ -65,7 +65,7 @@ void ComputeForce (force, Rho, x, y, mass, dimfxy, sys, index)
   real *dens, *abs, *ord;
   extern boolean CustTqExc, CutForces, SmoothAtPlanet;
   real custtqexcdistance, cutoffdist, raddistfrompla;
-  real rsmoothing, *cs;
+  real rsmoothing, *cs, rsmooth;
   fxi = (real *) prs_malloc (sizeof(real) * dimfxy);
   fxo = (real *) prs_malloc (sizeof(real) * dimfxy);
   fyi = (real *) prs_malloc (sizeof(real) * dimfxy);
@@ -136,8 +136,10 @@ void ComputeForce (force, Rho, x, y, mass, dimfxy, sys, index)
       dy = yc-y;
       d2 = dx*dx+dy*dy;
       planet_distance = sqrt(d2);
-      if ((!RocheSmoothing) && (!SmoothAtPlanet))
-        rsmoothing = cs[l] * pow(xc*xc+yc*yc, 1.5)/sqrt(ADIABATICINDEX) * THICKNESSSMOOTHING ;
+      if ((!RocheSmoothing) && (!SmoothAtPlanet)){
+        rsmooth = sqrt(xc*xc+yc*yc);
+        rsmoothing = cs[l] * sqrt(rsmooth*rsmooth*rsmooth)/sqrt(ADIABATICINDEX) * THICKNESSSMOOTHING ;
+      }
       dist2 = d2 + rsmoothing*rsmoothing;
       distance = sqrt(dist2);
       InvDist3 = 1.0/dist2/distance;

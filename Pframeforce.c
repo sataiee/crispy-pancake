@@ -41,7 +41,7 @@ void FillForcesArrays (sys, Rho, Energy, Vtheta, dt, SGAarray)
      real *SGAarray;
 {
   int i, j, l, nr, ns, k, NbPlanets, iplanet, ii;
-  real x, y, angle, distance, distancesmooth, frac, csp;
+  real x, y, angle, distance, distancesmooth, frac, csp, rsmooth;
   real xplanet, yplanet, RRoche,smooth, mplanet;
   real PlanetDistance, *Pot, pot=0, smoothing;
   real SGAxiPot[GLOBALNRAD];
@@ -93,8 +93,10 @@ void FillForcesArrays (sys, Rho, Energy, Vtheta, dt, SGAarray)
         angle = azimuth[j];
         x = Rmed[i]*cos(angle);
         y = Rmed[i]*sin(angle);
-        if ((!RocheSmoothing) && (!SmoothAtPlanet))
-          smoothing = cs[l]*pow(x*x+y*y, 1.5)/sqrt(ADIABATICINDEX) * THICKNESSSMOOTHING ;
+        if ((!RocheSmoothing) && (!SmoothAtPlanet)){
+          rsmooth = sqrt(x*x+y*y);
+          smoothing = cs[l]*sqrt(rsmooth*rsmooth*rsmooth)/sqrt(ADIABATICINDEX) * THICKNESSSMOOTHING ;
+        }
         smooth = smoothing*smoothing;
         distance = (x-xplanet)*(x-xplanet)+(y-yplanet)*(y-yplanet);
         distancesmooth = sqrt(distance+smooth);
