@@ -292,7 +292,7 @@ void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys, SGAarray)
   dt = min2(dthydro,dtnbody);
   while (dtemp < 0.999999999*DT) {
     if (!FargoPlanete) {
-      MassTaper = (PhysicalTime-PhysicalTimeInitial)/(MASSTAPER*2.0*M_PI);
+      MassTaper = (PhysicalTime)/(MASSTAPER*2.0*M_PI);
       MassTaper = (MassTaper > 1.0 ? 1.0 : pow(sin(MassTaper*M_PI/2.0),2.0));
     } else {
       MassTaper = (PhysicalTime-PhysicalTimeInitial)/Runtime;
