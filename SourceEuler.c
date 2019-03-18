@@ -299,7 +299,7 @@ void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys, SGAarray)
     }
     for (k = 0; k < NbPlanets; k++){
       if (!FargoPlanete){
-        sys->mass[k] = PlanetMassAtRestart[k] + (FinalPlanetMass[k]-PlanetMassAtRestart[k])*MassTaper;
+        sys->mass[k] = FinalPlanetMass[k]*MassTaper;
       } else {
         masscorenew = PlanetMassAtRestart[k] + (FinalPlanetMass[k]-PlanetMassAtRestart[k])*MassTaper;
         sys->mass[k] = masscorenew + Menvelope[k];
