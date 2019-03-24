@@ -133,7 +133,6 @@ Force *force;
   extern real Runtime;
   int OldNSEC;
   real m0, m1, mbin, *Mswitch;
-  real massinvelocity;
   real a, e, incl, foo, mcore, menv, dcore, stime, deltamenv;
   boolean feeldis, feelothers, binary;
   nb = FindNumberOfPlanets (filename);
@@ -169,7 +168,8 @@ Force *force;
       sscanf(s, "%s ", nm);
       if (isalpha(s[0])) {
        s1 = s + strlen(nm);
-       sscanf(s1 + strspn(s1, "\t :=>_"), "%f %f %f %s %s %s %f %f", &dist, &mass, &accret, test1, test2, test3, &eccentricity, &azimuth);
+       sscanf(s1 + strspn(s1, "\t :=>_"), "%f %f %f %s %s %s %f %f", &dist, &mass, &accret, test1, test2, test3, \
+                                                                     &eccentricity, &azimuth);
        if ( CICPlanet ) {
          /* initialization puts planet at the interface between two
             cells (with eccentricity = 0 only) */
@@ -203,22 +203,12 @@ Force *force;
        sys->mass[i] =  PlanetMassAtRestart[i];
        /* Mass of planet i at the end of the calculation */
        FinalPlanetMass[i] = (real)mass; 
-       if (MASSTAPER > 1e-3)
-         massinvelocity = 0.0;
-       else
-         massinvelocity = PlanetMassAtRestart[i];
-       /* This is done only when MassTaper does not vanish for the
-          first output of the planet's mass in the planet[i].dat
-          files */
        feeldis = feelothers = YES;
        binary = NO;
        if (tolower(*test1) == 'n') feeldis = NO;
        if (tolower(*test2) == 'n') feelothers = NO;
-       /* NEW: if OneDRun activated then planets do not feel disc 
-          nor each other: Fargo/Planet coupling where Planet handles 
-          the planet evolution */
        if (tolower(*test3) == 'y') binary = YES;
-       MassInside += massinvelocity;
+       MassInside += PlanetMassAtRestart[i];
        sys->x[i] = (real)dist*(1.0+eccentricity)*cos(azimuth);
        sys->y[i] = (real)dist*(1.0+eccentricity)*sin(azimuth);
        sys->a[i] = (real)dist;
@@ -228,16 +218,16 @@ Force *force;
        sys->FeelOthers[i] = feelothers;
        sys->Binary[i] = binary;
        sys->TorqueFlag[i] = NO;
-       if ((feeldis == YES) && ((*CORRECTVPLANET == 'Y') || (*CORRECTVPLANET == 'y'))) {
+       if ((feeldis == YES) && (tolower(*CORRECTVPLANET) == 'y')) {
          if (eccentricity > 0.0)
            mastererr("When you are using the correction for the planetary mass,\
                       you cannot have non-zero eccentricity.\n");
          CorrectVgasSG = YES;
-         gamma = ComputeAccel (force, Rho, sys->x[i], sys->y[i], massinvelocity, sys, 2);
+         gamma = ComputeAccel (force, Rho, sys->x[i], sys->y[i], PlanetMassAtRestart[i], sys, 2);
          gamma.x -= (1.0+MassInside)/dist/dist;
          vtheta = sqrt(dist*fabs(gamma.x)); // This condition is only for circular planets
        } else {
-         sys->vy[i] = sqrt((1.0+MassInside)/dist)*sqrt( (1.0-eccentricity)/(1.0+eccentricity) );
+         vtheta = sqrt((1.0+MassInside)/dist)*sqrt( (1.0-eccentricity)/(1.0+eccentricity) );
        }
        vr = 0.0;
        sys->vy[i] = vr*sin(azimuth) + vtheta*cos(azimuth);
@@ -285,16 +275,12 @@ Force *force;
         MenvRemoved[i] = 0.0;
         sys->mass[i] = PlanetMassAtRestart[i];
         MdotEnvelope[i] = deltamenv/Runtime;
-        if (MASSTAPER > 1e-3)
-          massinvelocity = 0.0;
-        else
-          massinvelocity = PlanetMassAtRestart[i];
         /* This is done only the first time Fargo is called by Planete */
         sys->x[i] = a*(1.0+e);
         sys->y[i] = 0.0;
         sys->a[i] = a;
         sys->e[i] = e;
-        sys->vy[i] = (real)sqrt(G*(1.0+massinvelocity)/a)*       \
+        sys->vy[i] = (real)sqrt(G*(1.0+PlanetMassAtRestart[i])/a)*       \
         sqrt( (1.0-e)/(1.0+e) );
         sys->vx[i] = -0.0000000001*sys->vy[i];
         sys->acc[i] = 0.0; // since mass accretion is taken care of by Planete
