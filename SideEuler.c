@@ -824,9 +824,9 @@ void EvanescentBoundary (Vrad, Vtheta, Rho, Energy, step, mdot)
   Tout = 2.0*PI*pow(GlobalRmed[GLOBALNRAD-1],3./2);
   /* WKZRMIN AND WKZRMAX are global Radii boundaries of killing wave zones */
   lambda = 0.0;
-  if (OpInner) {
+  if (OpInner || DecInner) {
     for (i = 0; i < nr; i++) {
-      if (i==0 && CPU_Master) {
+      if (OpInner && i==0 && CPU_Master) {
         /* Standard outflow prescription */
         for (j = 0; j < ns; j++){
           l = i*ns+j;
@@ -834,8 +834,19 @@ void EvanescentBoundary (Vrad, Vtheta, Rho, Energy, step, mdot)
             vrad[l] = 0;
           else
             vrad[l] = vrad[l+ns];
+        }
+      } else {
+        if (Rmed[i] < DISKINNEREDGE){
+          for (j = 0; j < ns; j++) {
+            l = j+i*ns;
+            if (PhysicalTime != 0.0)
+              dens[l] *= 0.999;
+            if (vrad[l] > 0)
+              vrad[l] = 0.0; //Only inflow is allowed
           }
-      } else if(Rmed[i] > WKZRMAX) {
+        }
+      }
+      if(Rmed[i] > WKZRMAX) {
          damping = (Rmed[i]-WKZRMAX)/(GlobalRmed[GLOBALNRAD-1]-WKZRMAX);
          lambda = damping*damping*WKZTOUT*step/Tout;
         // OLD Evanescent BC with damping wrt initial profiles

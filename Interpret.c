@@ -174,6 +174,12 @@ void ReadVariables(filename)
       OpInner = YES;
       masterprint("Your inner boundary will be open.\n");
     }
+    if ((*ZEROINNER == 'D') || (*ZEROINNER == 'd')){
+      DecInner = YES;
+      masterprint("You set an innerd disc edge.\n");
+     if (DISKINNEREDGE == 0.0)
+      mastererr("You forgot to set the radius of the inner edge.\n");
+    }
   }
   if ((*OPENINNERBOUNDARY == 'M') || (*OPENINNERBOUNDARY == 'm')) MixedBC = YES;
   if ((*OPENINNERBOUNDARY == 'A') || (*OPENINNERBOUNDARY == 'a')) AccBoundary = YES;
