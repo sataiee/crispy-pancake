@@ -834,7 +834,6 @@ void EvanescentBoundary (Vrad, Vtheta, Rho, Energy, step, mdot)
             vrad[l] = 0;
           else
             vrad[l] = vrad[l+ns];
-          dens[l] = dens[l+ns];
         }
       } else {
         if (Rmed[i] < DISKINNEREDGE){
