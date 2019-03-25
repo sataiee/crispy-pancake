@@ -54,7 +54,7 @@ void WritePlanetFile (sys, timestep, n)
     prs_exit (1);
   }
    MenvelopeMax = MenvRemoved[n]+MenvAccreted[n]+MenvRemained[n];
-fprintf (output, "%d\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%d\t%#.18g\t%#.18g\t%#.18g\t%#.18g\n", timestep, Xplanet, Yplanet, VXplanet, VYplanet, MplanetVirtual, LostMass, PhysicalTime, OmegaFrame, mdcp, exces_mdcp, Menvelope[n],sys->acc[n], MdotEnvelope[n], MenvelopeMax, MenvCount[n],MenvRemained[n],MASSTAPER, MenvRemoved[n], MenvAccreted[n]);
+fprintf (output, "%d\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%d\t%#.18g\t%#.18g\t%#.18g\t%#.18g\n", timestep, Xplanet, Yplanet, VXplanet, VYplanet, MplanetVirtual, LostMass, PhysicalTime, OmegaFrame, mdcp, exces_mdcp, Menvelope[n],sys->acc[n], MdotEnvelope[n], MenvelopeMax, MenvCount[n],MenvRemained[n],sys->MassTaper[n], MenvRemoved[n], MenvAccreted[n]);
   fclose (output);
   printf ("done\n");
   fflush (stdout);
@@ -129,7 +129,7 @@ void WriteBigPlanetFile (sys, timestep, n)
     prs_exit (1);
   }
   MenvelopeMax = MenvRemoved[n]+MenvAccreted[n]+MenvRemained[n];
-fprintf (output, "%d\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%d\t%#.18g\t%#.18g\t%#.18g\t%#.18g\n", timestep, Xplanet, Yplanet, VXplanet, VYplanet, MplanetVirtual, LostMass, PhysicalTime, OmegaFrame, mdcp, exces_mdcp, Menvelope[n],sys->acc[n], MdotEnvelope[n], MenvelopeMax, MenvCount[n],MenvRemained[n],MASSTAPER, MenvRemoved[n], MenvAccreted[n]);
+fprintf (output, "%d\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%#.18g\t%d\t%#.18g\t%#.18g\t%#.18g\t%#.18g\n", timestep, Xplanet, Yplanet, VXplanet, VYplanet, MplanetVirtual, LostMass, PhysicalTime, OmegaFrame, mdcp, exces_mdcp, Menvelope[n],sys->acc[n], MdotEnvelope[n], MenvelopeMax, MenvCount[n],MenvRemained[n],sys->MassTaper[n], MenvRemoved[n], MenvAccreted[n]);
   fclose (output);
 }
 

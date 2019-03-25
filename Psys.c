@@ -45,7 +45,7 @@ int FindNumberOfPlanets (filename)
 PlanetarySystem *AllocPlanetSystem (nb)
 int nb;
 {
-  real *mass, *x, *y, *vx, *vy, *acc, *a, *e;
+  real *mass, *x, *y, *vx, *vy, *acc, *a, *e, *masstaper;
   boolean *feeldisk, *feelothers, *binary, *torqueflag;
   int i, j;
   PlanetarySystem *sys;
@@ -62,8 +62,9 @@ int nb;
   e    = (real *)malloc (sizeof(real)*(nb+1));
   mass = (real *)malloc (sizeof(real)*(nb+1));
   acc  = (real *)malloc (sizeof(real)*(nb+1));
+  masstaper  = (real *)malloc (sizeof(real)*(nb+1));
   if ((x == NULL) || (y == NULL) || (vx == NULL) || (vy == NULL) || (acc == NULL) || \
-      (mass == NULL) || (a == NULL) || (e == NULL)) {
+      (mass == NULL) || (a == NULL) || (e == NULL) || (masstaper == NULL)) {
     fprintf (stderr, "Not enough memory.\n");
     prs_exit (1);
   }
@@ -87,8 +88,9 @@ int nb;
   sys->FeelOthers = feelothers;
   sys->Binary = binary;
   sys->TorqueFlag = torqueflag;
+  sys->MassTaper = masstaper;
   for (i = 0; i < nb; i++) {
-    x[i] = y[i] = vx[i] = vy[i] = a[i] = e[i] = mass[i] = acc[i] = 0.0;
+    x[i] = y[i] = vx[i] = vy[i] = a[i] = e[i] = mass[i] = acc[i] = masstaper[i] = 0.0;
     feeldisk[i] = feelothers[i] = YES;
     binary[i] = torqueflag[i] = NO;
   }
@@ -111,6 +113,7 @@ void FreePlanetary (sys)
   free (sys->FeelDisk);
   free (sys->Binary);
   free (sys->TorqueFlag);
+  free (sys->MassTaper);
   free (sys);
 }
 
@@ -127,7 +130,7 @@ Force *force;
   char s[512], nm[512], test1[512], test2[512], test3[512], *s1;
   PlanetarySystem *sys;
   int i=0, j, nb, counter, nbplanets, fixedpls, Foo, ii, nr, ns, l;
-  float mass, dist, accret, eccentricity, azimuth, vr, vtheta;
+  float mass, dist, accret, eccentricity, azimuth, vr, vtheta, mtaper;
   real MassInside=0, *cs;
   Pair gamma;
   extern real Runtime;
@@ -168,8 +171,8 @@ Force *force;
       sscanf(s, "%s ", nm);
       if (isalpha(s[0])) {
        s1 = s + strlen(nm);
-       sscanf(s1 + strspn(s1, "\t :=>_"), "%f %f %f %s %s %s %f %f", &dist, &mass, &accret, test1, test2, test3, \
-                                                                     &eccentricity, &azimuth);
+       sscanf(s1 + strspn(s1, "\t :=>_"), "%f %f %f %s %s %s %f %f %f", &dist, &mass, &accret, test1, test2, test3, \
+                                                                     &eccentricity, &azimuth, &mtaper);
        if ( CICPlanet ) {
          /* initialization puts planet at the interface between two
             cells (with eccentricity = 0 only) */
@@ -198,7 +201,7 @@ Force *force;
        }
        MenvRemoved[i] = 0.0;
        MenvAccreted[i] = 0.0;
-       if ((MASSTAPER > 1e-3) && (NbRestart == 0))
+       if ((mtaper > 1e-3) && (NbRestart == 0))
           PlanetMassAtRestart[i] = 0.0;
        sys->mass[i] =  PlanetMassAtRestart[i];
        /* Mass of planet i at the end of the calculation */
@@ -218,6 +221,7 @@ Force *force;
        sys->FeelOthers[i] = feelothers;
        sys->Binary[i] = binary;
        sys->TorqueFlag[i] = NO;
+       sys->MassTaper[i] = mtaper;
        if ((feeldis == YES) && (tolower(*CORRECTVPLANET) == 'y')) {
          if (eccentricity > 0.0)
            mastererr("When you are using the correction for the planetary mass,\

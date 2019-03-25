@@ -109,7 +109,7 @@ struct planetary_system {
   boolean *FeelOthers;		/* will feel other planets ? */
   boolean *Binary;		/* are planets in a binary system ? */
   boolean *TorqueFlag;  /* should the torque calculated by formulae ? */
-  real **TorqueDens;    /* The torque density from the disc on each planet (dGamma/dm)*/
+  real    *MassTaper;   /* How long does it take to reach the final mass */
 };
 
 typedef struct planetary_system PlanetarySystem;

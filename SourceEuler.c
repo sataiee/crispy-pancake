@@ -242,7 +242,7 @@ void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys, SGAarray)
   extern boolean FargoPlanete, AccBoundary;
   extern real Runtime;
   extern real Mdisc0;
-  real DiskMass, masscorenew, *Mswitch,rp;
+  real DiskMass, masscorenew, *Mswitch,rp, MassTaper;
   extern int dimfxy;
   extern boolean       Write_Sigdot;
   FirstGasStepFLAG=1;
@@ -291,16 +291,17 @@ void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys, SGAarray)
   /* dt is the minimum between dthydro and dtnbody */
   dt = min2(dthydro,dtnbody);
   while (dtemp < 0.999999999*DT) {
-    if (!FargoPlanete) {
-      MassTaper = (PhysicalTime)/(MASSTAPER*2.0*M_PI);
-      MassTaper = (MassTaper > 1.0 ? 1.0 : pow(sin(MassTaper*M_PI/2.0),2.0));
-    } else {
-      MassTaper = (PhysicalTime-PhysicalTimeInitial)/Runtime;
-    }
     for (k = 0; k < NbPlanets; k++){
       if (!FargoPlanete){
+        if (sys->MassTaper[k] != 0.0){
+          MassTaper = (PhysicalTime)/(sys->MassTaper[k]*2.0*M_PI);
+          MassTaper = (MassTaper > 1.0 ? 1.0 : pow(sin(MassTaper*M_PI/2.0),2.0));
+        } else {
+          MassTaper = 1.0;
+        }
         sys->mass[k] = FinalPlanetMass[k]*MassTaper;
       } else {
+        MassTaper = (PhysicalTime-PhysicalTimeInitial)/Runtime;
         masscorenew = PlanetMassAtRestart[k] + (FinalPlanetMass[k]-PlanetMassAtRestart[k])*MassTaper;
         sys->mass[k] = masscorenew + Menvelope[k];
         if (FinalPlanetMass[k] == 0.0)
@@ -1369,7 +1370,7 @@ void ComputeSoundSpeed (Rho, Energy, sys)
              cstarget += num*omeff/den;
          }
          cstarget /= (NbPlanets+0.0);
-         cs[l] = csiso + (cstarget-csiso)*MassTaper;
+         cs[l] = csiso + (cstarget-csiso)* sys->MassTaper[0];
        }
       } else {
        cs[l] = sqrt( ADIABATICINDEX*(ADIABATICINDEX-1.0)*energ[l]/dens[l] );

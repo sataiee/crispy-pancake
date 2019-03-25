@@ -16,7 +16,6 @@ extern	char	OPENINNERBOUNDARY[512];
 extern	char	ADVLABEL[512];
 extern	char	TRANSPORT[512];
 extern	char	PLANETCONFIG[512];
-extern	real	MASSTAPER;
 extern	char	GRIDSPACING[512];
 extern	int	NRAD;
 extern	int	NSEC;

@@ -32,7 +32,7 @@ extern int ievaporation;
 extern real Rinf[MAX1D], Rsup[MAX1D], Rmed[MAX1D], Surf[MAX1D];
 extern real InvRmed[MAX1D], InvSurf[MAX1D], InvDiffRmed[MAX1D];
 extern real InvDiffRsup[MAX1D], InvRinf[MAX1D], Radii[MAX1D], GlobalRmed[MAX1D], azimuth[MAX1D];
-extern real SigmaMed[MAX1D], SigmaInf[MAX1D], MassTaper;
+extern real SigmaMed[MAX1D], SigmaInf[MAX1D];
 extern real EnergyMed[MAX1D], PrescTimeMed[MAX1D];
 extern real FinalPlanetMass[MAX1D], PlanetMassAtRestart[MAX1D];
 extern real VMed[MAX1D];
