@@ -15,10 +15,16 @@ real Sigma(r)
      real r;
 {
   real cavity = 1.0;
-  real sigma, sigref, rdecay;
+  real sigma, sigref, rdecay, rmin, rmax;
   real sigmabg, deltz, rtarget, deltmod;
   extern boolean ExponentialDecay;
-  if (r < CAVITYRADIUS) cavity = 1.0/CAVITYRATIO; 
+  //if (r < CAVITYRADIUS) cavity = 1.0/CAVITYRATIO; 
+  rmin = CAVITYRADIUS-CAVITYWIDTH*ASPECTRATIO;
+  rmax = CAVITYRADIUS+CAVITYWIDTH*ASPECTRATIO;
+  if (r < rmin) cavity /= CAVITYRATIO;
+  if ((r >= rmin) && (r <= rmax)) {
+    cavity /= exp((rmax-r)/(rmax-rmin)*log(CAVITYRATIO));
+  }
   /* This is *not* a steady state */
   /* profile, if a cavity is defined. It first needs */
   /* to relax towards steady state, on a viscous time scale */
