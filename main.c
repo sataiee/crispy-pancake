@@ -313,6 +313,7 @@ main(argc, argv)
         WriteMassTrack (sys, TimeStep, DiskMass, EvapMass, AccMassPls);
         if (Write_Sigdot)
           WriteSigmaDotFile(TimeStep);
+
       }
       /* Algorithm loop begins here */
       /***********************/
