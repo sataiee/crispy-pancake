@@ -294,12 +294,18 @@ void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys, SGAarray)
     for (k = 0; k < NbPlanets; k++){
       if (!FargoPlanete){
         if (sys->MassTaper[k] > 1e-3){
-          MassTaper = (PhysicalTime)/(sys->MassTaper[k]*2.0*M_PI);
+          if (tolower(*MULTIMASSTAPER) == 'y')
+            MassTaper = (PhysicalTime-PhysicalTimeInitial)/(sys->MassTaper[k]*2.0*M_PI);
+          else
+            MassTaper = PhysicalTime/(sys->MassTaper[k]*2.0*M_PI);
           MassTaper = (MassTaper > 1.0 ? 1.0 : pow(sin(MassTaper*M_PI/2.0),2.0));
         } else {
           MassTaper = 1.0;
         }
-        sys->mass[k] = FinalPlanetMass[k]*MassTaper;
+        if (tolower(*MULTIMASSTAPER) == 'y')
+          sys->mass[k] = PlanetMassAtRestart[k] + (FinalPlanetMass[k]-PlanetMassAtRestart[k])*MassTaper;
+        else
+          sys->mass[k] = FinalPlanetMass[k]*MassTaper;
       } else {
         MassTaper = (PhysicalTime-PhysicalTimeInitial)/Runtime;
         masscorenew = PlanetMassAtRestart[k] + (FinalPlanetMass[k]-PlanetMassAtRestart[k])*MassTaper;

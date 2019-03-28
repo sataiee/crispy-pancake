@@ -157,4 +157,5 @@ InitVariables()
   var("CORRECTVPLANET", CORRECTVPLANET, STRING, NO, "NO");
   var("WRITEFORCES", WRITEFORCES, STRING, NO, "NO"); //If yes, the force will be written for each planet in a file named forces.
   var("DISKINNEREDGE", &DISKINNEREDGE, REAL, NO, "0.0"); //In radii smaller than this, the surface density is progressively decreased
+  var("MULTIMASSTAPER", MULTIMASSTAPER, STRING, NO, "NO"); //In radii smaller than this, the surface density is progressively decreased
 }

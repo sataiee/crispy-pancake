@@ -168,11 +168,17 @@ Force *force;
     i = 0;
     j = 0;
     while (fgets(s, 510, input) != NULL) {
+      mtaper=1e50;
       sscanf(s, "%s ", nm);
       if (isalpha(s[0])) {
        s1 = s + strlen(nm);
        sscanf(s1 + strspn(s1, "\t :=>_"), "%f %f %f %s %s %s %f %f %f", &dist, &mass, &accret, test1, test2, test3, \
                                                                      &eccentricity, &azimuth, &mtaper);
+       if (mtaper > 1e40){
+         printf("A column is missing in .cfg file. You should have nine columns as below \n ");
+         printf("distance, mass, accretion factor, feel disc, feel others, binary, eccentricity, azimuth, mass taper\n ");
+         prs_exit(1);
+       }
        if ( CICPlanet ) {
          /* initialization puts planet at the interface between two
             cells (with eccentricity = 0 only) */
