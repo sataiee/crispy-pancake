@@ -826,14 +826,17 @@ void EvanescentBoundary (Vrad, Vtheta, Rho, Energy, step, mdot)
   lambda = 0.0;
   if (OpInner || DecInner) {
     for (i = 0; i < nr; i++) {
-      if (OpInner && i==0 && CPU_Master) {
-        /* Standard outflow prescription */
-        for (j = 0; j < ns; j++){
-          l = i*ns+j;
-          if (vrad[l+ns] > 0)
-            vrad[l] = 0;
-          else
-            vrad[l] = vrad[l+ns];
+      if (OpInner){
+        if (i==1 && CPU_Master) {
+          /* Standard outflow prescription */
+          for (j = 0; j < ns; j++){
+            l = i*ns+j;
+            if (vrad[l+ns] > 0)
+              vrad[l] = 0;
+            else
+              vrad[l] = vrad[l+ns];
+            dens[l-ns] = dens[l];
+          }
         }
       } else {
         if (Rmed[i] < DISKINNEREDGE){
