@@ -23,7 +23,7 @@ static PolarGrid *VthetaNew, *VthetaInt;
 static PolarGrid *EnergyNew, *EnergyInt, *TempInt;
 static real timeCRASH;  
 extern boolean Corotating, ModifiedSoundSpeed;
-extern boolean EnergyEquation, ThermalDiffusion, ThermalCooling, ViscousHeating, RadiativeDiffusion;
+extern boolean EnergyEquation, ThermalDiffusion, ThermalCooling, ViscousHeating;
 extern boolean SelfGravity, ZMPlus;
 int FirstGasStepFLAG=1;
 static int AlreadyCrashed = 0, GasTimeStepsCFL;
@@ -163,7 +163,6 @@ void InitEuler (Vr, Vt, Rho, Energy, sys, SGAarray)
   ViscHeat     = CreatePolarGrid(NRAD, NSEC, "ViscousHeating");
   ThermHeat    = CreatePolarGrid(NRAD, NSEC, "ThermalHeating");
   ThermCool    = CreatePolarGrid(NRAD, NSEC, "ThermalCooling");
-  RadDiffusion    = CreatePolarGrid(NRAD, NSEC, "RadiativeDiffusion");
   StarIrradiation = CreatePolarGrid(NRAD, NSEC, "StarIrradiation");
   ArtViscHeat     = CreatePolarGrid(NRAD, NSEC, "ArtViscousHeating");
   pdvEnergy       = CreatePolarGrid(NRAD, NSEC, "pdvEnergy");
@@ -189,8 +188,6 @@ void InitEuler (Vr, Vt, Rho, Energy, sys, SGAarray)
     ComputeThermalCooling (Rho, Energy);
   if (IrradStar)
     ComputeStarIrrad (Rho);
-  if (RadiativeDiffusion)
-    ComputeRadiavtiveDiffusion(Rho, Energy);
 }
 
 real min2 (a,b)
@@ -256,10 +253,9 @@ void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys, SGAarray)
        isothermal runs since sounsspeed is constant. It is computed
        here for the needs of ConditionCFL. */
   }
-  mpi_make1Dprofile (SoundSpeed->Field, axics);
-  mpi_make1Dprofile (Rho->Field, axidens);
-  mpi_make1Dprofile (Temperature->Field, axitemp);
-  mpi_make1Dprofile (Opacity->Field, opaaxi);
+  make_azi_average_profile (SoundSpeed->Field, axics);
+  make_azi_average_profile (Rho->Field, axidens);
+  make_azi_average_profile (Temperature->Field, axitemp);
   if (IsDisk == YES) {
     CommunicateBoundaries (Rho, Vrad, Vtheta, Energy, Label);
     if (SloppyCFL == YES)
@@ -421,9 +417,6 @@ void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys, SGAarray)
         if (ThermalDiffusion) {
           ComputeThermalDiffusion (Rho, Energy);
           SubStep0(Rho, Energy, dt);
-        } else if (RadiativeDiffusion){
-          ComputeRadiavtiveDiffusion(Rho, Energy);
-          SubStep0(Rho, Energy, dt);
         }
       }
       ComputeTemperatureField (Rho, Energy);
@@ -490,10 +483,10 @@ void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys, SGAarray)
       masterprint("Disc is gone\n");
       prs_exit(0);              
     }
-    mpi_make1Dprofile (SoundSpeed->Field, axics);
-    mpi_make1Dprofile (Rho->Field, axidens);
-    mpi_make1Dprofile (Temperature->Field, axitemp);
-    mpi_make1Dprofile (Opacity->Field, opaaxi);
+    make_azi_average_profile (SoundSpeed->Field, axics);
+    make_azi_average_profile (Rho->Field, axidens);
+    make_azi_average_profile (Temperature->Field, axitemp);
+    
     PhysicalTime += dt;
   }
   UpdateLog (force, sys, Rho, Energy, TimeStep, PhysicalTime, dimfxy);
@@ -524,8 +517,6 @@ void SubStep0 (Rho,Energy,dt)
       l = j+i*ns;
       if (ThermalDiffusion) {
         energy[l] += therheat[l]*dt;
-      } else if (RadiativeDiffusion){
-        energy[l] += raddiff[l]*dt;
       }
     }
   }
@@ -863,18 +854,6 @@ int ConditionCFL (Rho,Vrad, Vtheta, deltaT)
        invdt5 = 1e-10;
       if (ThermalDiffusion){ 
        invdt6 = DIFFUSIVITY*4.0/pow(min2(dxrad,dxtheta),2.0);
-      } else if (RadiativeDiffusion){
-        h = cs/pow(Rmed[i],-0.5);
-  /* calculating lambda for cell l*/
-      gradT = sqrt(pow(InvDiffRsup[i]*(temperature[lip]-temperature[l]),2)+ pow(InvRmed[i]*invdphi*(temperature[ljp]-temperature[l]),2));
-      Rl = 8*h*Rmed[i]/dens[l]/opacity[l]*gradT/temperature[l];
-      if (Rl <= 2){
-        lambda = 2./(3.*sqrt(9+10*Rl*Rl));
-      } else {
-        lambda = 10./sqrt(10.*Rl+9+sqrt(180.*Rl+81.));
-      }
-        chi  = lambda*64.*ADIABATICINDEX*(ADIABATICINDEX-1)*sigma_SB*pow(temperature[l],4)/ (opacity[l]*pow(dens[l],2)*pow(Rmed[i],-3));
-        invdt6 = chi*4.0/pow(min2(dxrad,dxtheta),2.0);
       } else {
        invdt6 = 1e-10;
       }
@@ -1145,96 +1124,6 @@ void ComputeThermalCooling (Rho, Energy)
   }
 }
 
-void ComputeRadiavtiveDiffusion (Rho, Energy)
-     PolarGrid *Rho, *Energy;
-{
-  int i, j, l, nr, ns;
-  int lip, lim, ljp, ljm, liip, ljjp, ljjm;
-  real *energy, *dens, *raddiff, *temp, *cs, *opacity;
-  real dphi, invdphi;
-  real Omega, Kip, Kl, Kjp, Kim, Kjm, Hscale, laplacienT, lambda, Rl, gradT;
-  nr = Rho->Nrad;
-  ns = Rho->Nsec;
-  energy = Energy->Field;
-  dens = Rho->Field;
-  temp =  Temperature->Field;
-  raddiff = RadDiffusion->Field;
-  cs = SoundSpeed->Field;
-  opacity = Opacity->Field;
-  dphi = (PMAX-PMIN)/(real)ns;
-  invdphi = 1.0/dphi;
-  /* Radiative diffusion implemented as in Muller & Kley 2013
-     and is -2H div(K gradT) */
-  /* calculating K gradT */
-  for (i = 1; i < nr-2; i++) {
-    Omega = pow(Rmed[i],-1.5);
-    for (j = 0; j < ns; j++) {
-      l = j+i*ns;
-      lip = l+ns;
-      lim = l-ns;
-      ljp = l+1;
-      if (j == ns-1) ljp = i*ns;
-      ljm = l-1;
-      if (j == 0) ljm = i*ns+ns-1;
-      liip = lip+ns;
-      ljjp = ljp+ns;
-      if (j == ns-2) ljjp = i*ns;
-      ljjm = ljm-1;
-      if (j == 1) ljjm = i*ns+ns-1;
-      Hscale = cs[l]/Omega;
-  /* calculating lambda for cell l and Kl*/
-      gradT = sqrt(pow(InvDiffRsup[i]*(temp[lip]-temp[l]),2)+ pow(InvRmed[i]*invdphi*(temp[ljp]-temp[l]),2));
-      Rl = 8*cs[l]/pow(Rmed[i],-1.5)/dens[l]/opacity[l]*gradT/temp[l];
-      if (Rl <= 2){
-        lambda = 2./(3.*sqrt(9+10*Rl*Rl));
-      } else {
-        lambda = 10./sqrt(10.*Rl+9+sqrt(180.*Rl+81.));
-      }
-      Kl = -lambda*16.*sigma_SB*2*Hscale*pow(temp[l],3) / (dens[l]*opacity[l]);
-  /* calculating lambda for cell lip*/
-      gradT = sqrt(pow(InvDiffRsup[i+1]*(temp[liip]-temp[lip]),2)+ pow(InvRmed[i+1]*invdphi*(temp[ljp+ns]-temp[lip]),2));
-      Rl = 8*cs[lip]/pow(Rmed[i+1],-1.5)/dens[lip]/opacity[lip]*gradT/temp[lip];
-      if (Rl <= 2){
-        lambda = 2./(3.*sqrt(9+10*Rl*Rl));
-      } else {
-        lambda = 10./sqrt(10.*Rl+9+sqrt(180.*Rl+81.));
-      }
-      Kip = -lambda*16.*sigma_SB*2*cs[lip]*pow(temp[lip],3) / pow(Rmed[i+1],-1.5)/ (dens[lip]*opacity[lip]);
-  /* calculating lambda for cell ljp*/
-      gradT = sqrt(pow(InvDiffRsup[i]*(temp[ljp+ns]-temp[ljp]),2)+ pow(InvRmed[i]*invdphi*(temp[ljjp]-temp[ljp]),2));
-      Rl = 8*cs[ljp]/pow(Rmed[i],-1.5)/dens[ljp]/opacity[ljp]*gradT/temp[ljp];
-      if (Rl <= 2){
-        lambda = 2./(3.*sqrt(9+10*Rl*Rl));
-      } else {
-        lambda = 10./sqrt(10.*Rl+9+sqrt(180.*Rl+81.));
-      }
-      Kjp = -lambda*16.*sigma_SB*2*cs[ljp]*pow(temp[ljp],3) / Omega / (dens[ljp]*opacity[ljp]);
-  /* calculating lambda for cell lim*/
-      gradT = sqrt(pow(InvDiffRsup[i-1]*(temp[l]-temp[lim]),2)+ pow(InvRmed[i-1]*invdphi*(temp[lim]-temp[ljm-ns]),2));
-      Rl = 8*cs[lim]/pow(Rmed[i-1],-1.5)/dens[lim]/opacity[lim]*gradT/temp[lim];
-      if (Rl <= 2){
-        lambda = 2./(3.*sqrt(9+10*Rl*Rl));
-      } else {
-        lambda = 10./sqrt(10.*Rl+9+sqrt(180.*Rl+81.));
-      }
-      Kim = -lambda*16.*sigma_SB*2*cs[lim]*pow(temp[lim],3) / Omega / (dens[lim]*opacity[lim]);
-  /* calculating lambda for cell ljm*/
-      gradT = sqrt(pow(InvDiffRsup[i]*(temp[ljm+ns]-temp[ljm]),2)+ pow(InvRmed[i]*invdphi*(temp[ljm]-temp[ljjm]),2));
-      Rl = 8*cs[ljm]/pow(Rmed[i],-1.5)/dens[ljm]/opacity[ljm]*gradT/temp[ljm];
-      if (Rl <= 2){
-        lambda = 2./(3.*sqrt(9+10*Rl*Rl));
-      } else {
-        lambda = 10./sqrt(10.*Rl+9+sqrt(180.*Rl+81.));
-      }
-      Kjm = -lambda*16.*sigma_SB*2*cs[ljm]*pow(temp[ljm],3) / Omega / (dens[ljm]*opacity[ljm]);
-      raddiff[l] = InvRmed[i]*InvDiffRsup[i]*(Rsup[i]*0.5*(Kl+Kip)*(temp[lip]-temp[l])*InvDiffRmed[i+1]\
--Rsup[i-1]*0.5*(Kl+Kim)*(temp[l]-temp[lim])*InvDiffRmed[i]);
-      raddiff[l] += InvRmed[i]*InvRmed[i]*invdphi*invdphi*(0.5*(Kjp+Kl)*(temp[ljp]-temp[l])\
--0.5*(Kl+Kjm)*(temp[l]-temp[ljm]));
-      raddiff[l] *= -2.*Hscale;
-    }
-  }
-}
 
 void ComputeThermalDiffusion (Rho, Energy)
      PolarGrid *Rho, *Energy;

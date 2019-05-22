@@ -13,7 +13,7 @@ extern boolean SelfGravity, SGZeroMode, EnergyEquation, MixedBC;
 extern Pair DiskOnPrimaryAcceleration;
 extern int dimfxy;
 real Hp0, Hg0, Ht0;
-extern boolean AccBoundary, ThermalDiffusion, RadiativeDiffusion;
+extern boolean AccBoundary, ThermalDiffusion;
 
 real GasTotalMass (array)
      PolarGrid *array;
@@ -304,26 +304,6 @@ Pair AccelFromFormula (force, Rho, x, y, smoothing, mass, sys, index, flag)
             Gammaeff = 2*gamq/denominator;
             xs = 1.1/pow(Gammaeff,0.25)*pow(0.4/THICKNESSSMOOTHING,0.25)*sqrt(mass/h);
             Pk = sqrt(sqrt(r)*xs*xs*xs/2/PI/DIFFUSIVITY);
-        } else if (RadiativeDiffusion) {
-            gradT = sqrt(pow((axitemp[lip]-axitemp[ip])/(GlobalRmed[lip]-GlobalRmed[ip]),2));
-            Rl = 8*h/axidens[ip]/opaaxi[ip]*gradT/axitemp[ip];
-            if (Rl <= 2){
-               lambda = 2./(3.*sqrt(9+10*Rl*Rl));
-            } else {
-               lambda = 10./sqrt(10.*Rl+9+sqrt(180.*Rl+81.));
-            }
-            chi  = lambda*64.*ADIABATICINDEX*(ADIABATICINDEX-1)*sigma_SB*pow(axitemp[ip],4)\
-                     / (opaaxi[ip]*pow(axidens[ip],2)*pow(GlobalRmed[ip],-3));
-            Q = 2*chi/3/(h*h*h)/sqrt(r);
-            gamq = ADIABATICINDEX*Q;
-            gamq2 = gamq*gamq;
-            denominator = sqrt(pow(gamq2+1,2)-16*(Q*Q)*(ADIABATICINDEX-1)) + gamq2 - 1;
-            denominator *= 2;
-            denominator = 0.5*sqrt(denominator);
-            denominator += gamq;
-            Gammaeff = 2*gamq/denominator;
-            xs = 1.1/pow(Gammaeff,0.25)*pow(0.4/THICKNESSSMOOTHING,0.25)*sqrt(mass/h);
-            Pk = sqrt(sqrt(r)*xs*xs*xs/2/PI/chi);
         } else {
             Gammaeff = ADIABATICINDEX;
             xs = 1.1/pow(Gammaeff,0.25)*pow(0.4/THICKNESSSMOOTHING,0.25)*sqrt(mass/h);       
@@ -345,7 +325,7 @@ Pair AccelFromFormula (force, Rho, x, y, smoothing, mass, sys, index, flag)
     /* Lindblad torque relation 47 */
     GammaL = (-2.5 - 1.7*betaf + 0.1*alphaf)* pow(0.4/THICKNESSSMOOTHING,0.71);
     if (EnergyEquation){
-       if (ThermalDiffusion || RadiativeDiffusion){
+       if (ThermalDiffusion){
            GammaCTotal = GammaHSE * Ffunc(Pnu)*Ffunc(Pk) * sqrt(Gfunc(Pnu)*Gfunc(Pk));
            GammaCTotal += GammaLE * sqrt((1-Kfunc(Pnu)) * (1-Kfunc(Pk)));
        } else {

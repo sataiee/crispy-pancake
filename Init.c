@@ -89,7 +89,7 @@ void Initialization (gas_density, gas_v_rad, gas_v_theta, gas_energy, gas_label,
      PlanetarySystem *pla_sys;
      real *SGAarray;
 {
-  extern boolean EnergyEquation, ThermalDiffusion, ThermalCooling, RadiativeDiffusion, FargoPlanete;
+  extern boolean EnergyEquation, ThermalDiffusion, ThermalCooling, FargoPlanete;
   extern int NbRestart;
   real *energ, *dens;
   FILE *output;
@@ -158,8 +158,6 @@ void Initialization (gas_density, gas_v_rad, gas_v_theta, gas_energy, gas_label,
       ComputeThermalDiffusion (gas_density, gas_energy);
     if (ThermalCooling)
       ComputeThermalCooling (gas_density, gas_energy);
-    if (RadiativeDiffusion)
-      ComputeRadiavtiveDiffusion (gas_density, gas_energy);
     ComputeViscousTerms (gas_v_rad, gas_v_theta, gas_density);
     ComputeViscousHeating (gas_density);
     ReadfromFile (gas_label, "gaslabel", NbRestart);
@@ -172,10 +170,9 @@ void Initialization (gas_density, gas_v_rad, gas_v_theta, gas_energy, gas_label,
     fprintf (stderr, "done\n");
     fflush (stderr);
   }
-  mpi_make1Dprofile (SoundSpeed->Field, axics);
-  mpi_make1Dprofile (gas_density->Field, axidens);
-  mpi_make1Dprofile (Temperature->Field, axitemp);
-  mpi_make1Dprofile (Opacity->Field, opaaxi);
+  make_azi_average_profile (SoundSpeed->Field, axics);
+  make_azi_average_profile (gas_density->Field, axidens);
+  make_azi_average_profile (Temperature->Field, axitemp);
   WriteDim (); 
 }
 

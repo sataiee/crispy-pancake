@@ -43,7 +43,6 @@ extern real HillRadius, mdcp, mdcp0, exces_mdcp;
 extern real axics[MAX1D];  // Azimuthally avaraged sound speed
 extern real axidens[MAX1D];  // Azimuthally avaraged surface density
 extern real axitemp[MAX1D];  // Azimuthally avaraged temperature
-extern real opaaxi[MAX1D];  // Azimuthally avaraged opacity
 extern boolean Merge, AdvecteLabel, FakeSequential, MonitorIntegral, debug, OnlyInit;
 extern boolean	GotoNextOutput, StoreSigma, StoreEnergy, ViscosityAlpha, RocheSmoothing;
 extern boolean CentrifugalBalance, ExcludeHill, SloppyCFL;

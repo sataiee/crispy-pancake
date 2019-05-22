@@ -27,7 +27,7 @@ boolean         Write_Temperature = NO, Write_DivV = NO, Write_OneD_Fields = NO;
 boolean         Write_TherHeat = NO, Write_TherCool = NO, Write_ViscHeat = NO, Write_RadDiff=NO, Write_StarIrrad = NO, Write_Opacity=NO;
 boolean         Write_Potential = NO, Write_Test = NO, Write_gr = NO, Write_gtheta = NO;
 boolean         SelfGravity = NO, SGZeroMode = NO, ZMPlus = NO, AddNoise = NO;
-boolean         EnergyEquation = NO, ModifiedSoundSpeed = NO, ThermalDiffusion = NO, ThermalCooling = NO, ViscousHeating = YES, TempPresc = NO, BetaCooling = NO, RadiativeDiffusion = NO;
+boolean         EnergyEquation = NO, ModifiedSoundSpeed = NO, ThermalDiffusion = NO, ThermalCooling = NO, ViscousHeating = YES, TempPresc = NO, BetaCooling = NO;
 boolean         CICPlanet = NO, ForcedCircular = NO, ForcedInnerCircular = NO, ForcedCircularTemp = NO;;
 boolean         MHDLSA = NO, HighMCutoff = NO;
 boolean         KNOpen = NO;
@@ -267,15 +267,10 @@ void ReadVariables(filename)
   }
   if ((*THERMALDIFFUSION == 'Y') || (*THERMALDIFFUSION == 'y')) ThermalDiffusion = YES; //Entropy diffusion (Clement)
   if ((*THERMALCOOLING == 'Y') || (*THERMALCOOLING == 'y')) ThermalCooling = YES;
-  if ((*RADIATIVEDIFFUSION == 'Y') || (*RADIATIVEDIFFUSION == 'y')) RadiativeDiffusion = YES; //Consistent with cooling (Sareh)
   if ((*VISCOUSHEATING == 'N') || (*VISCOUSHEATING == 'n')) ViscousHeating = NO;
   if ((*TEMPPRESC == 'Y') || (*TEMPPRESC == 'y')) TempPresc = YES;
   if ((*BETACOOLING == 'Y') || (*BETACOOLING == 'y')) BetaCooling = YES;
   if ((*STELLARIRRADIATION == 'Y') || (*STELLARIRRADIATION == 'y'))  StellarIrradiation = YES;  //This is the model with a background temperature (Clement)
-  if (ThermalDiffusion && RadiativeDiffusion){
-    masterprint ("You cannot have two models of diffusion together. Pleace deactivate one of them ");
-    prs_exit(1);
-  }
   if ( (*STARIRRAD == 'Y') || (*STARIRRAD == 'y'))  IrradStar = YES; //This is the model with calculating direct heating (Sareh)
   if (StellarIrradiation && IrradStar){
     mastererr("You cannot have StellarIrradiation and StarIrrad together.\n");
@@ -290,7 +285,6 @@ void ReadVariables(filename)
   if (!EnergyEquation) {
       ThermalDiffusion = NO;
       ThermalCooling = NO;
-      RadiativeDiffusion = NO;
       BetaCooling = NO;  
       StellarIrradiation = NO; 
       IrradStar = NO;

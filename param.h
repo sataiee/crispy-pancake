@@ -74,7 +74,6 @@ extern	real	ADIABATICINDEX;
 extern	real	PLANETASPECTRATIO;
 extern	char	THERMALDIFFUSION[512];
 extern	char	THERMALCOOLING[512];
-extern	char	RADIATIVEDIFFUSION[512];
 extern	char	VISCOUSHEATING[512];
 extern	real	DIFFUSIVITY;
 extern	char	TEMPPRESC[512];

@@ -104,3 +104,24 @@ int ithetp;
   }
   free (localaxifield);
 }
+
+
+/* this function makes a locally azimuthally averaged profile only over the grids 
+   available for every processor. Note that this one does not calculate the global array */
+void make_azi_average_profile (gridfield, axifield)
+real* gridfield;
+real* axifield;
+{
+  int i, j, l;
+  real localaxifield;
+  for (i = Zero_or_active; i < Max_or_active; i++) {
+    localaxifield = 0.0;
+    for( j = 0; j < NSEC; j++ ) {
+      l = i*NSEC + j;
+      localaxifield += gridfield[l];
+    }
+    localaxifield /= (real)NSEC;
+    axifield[IMIN+i] = localaxifield;
+  }
+}
+
