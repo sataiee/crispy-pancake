@@ -181,3 +181,5 @@ real elle();
 real rd();
 void nrerror();
 void make_azi_average_profile();
+real PlutoOpacity();
+real OpacityOriginal();

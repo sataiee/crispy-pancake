@@ -152,3 +152,4 @@ extern	char	CORRECTVPLANET[512];
 extern	char	WRITEFORCES[512];
 extern	real	DISKINNEREDGE;
 extern	char	MULTIMASSTAPER[512];
+extern	char	OPACITYTYPE[512];
