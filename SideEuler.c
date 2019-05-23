@@ -256,6 +256,7 @@ Pair AccelFromFormula (force, Rho, x, y, smoothing, mass, sys, index, flag)
     real TauMig, TauEcc, vdotr;
     real omega, new_r, denom, dtheta, vx, vy, gradT, Rl, lambda;
     real Tlib, TUturn, torbit;
+    mpi_make1Dprofile (Temperature->Field, axitemp);
     r2 = x*x+y*y;
     theta  = atan2(y,x);
     r = sqrt(r2);

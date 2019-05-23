@@ -255,7 +255,6 @@ void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys, SGAarray)
   }
   make_azi_average_profile (SoundSpeed->Field, axics);
   make_azi_average_profile (Rho->Field, axidens);
-  make_azi_average_profile (Temperature->Field, axitemp);
   if (IsDisk == YES) {
     CommunicateBoundaries (Rho, Vrad, Vtheta, Energy, Label);
     if (SloppyCFL == YES)
@@ -485,7 +484,6 @@ void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys, SGAarray)
     }
     make_azi_average_profile (SoundSpeed->Field, axics);
     make_azi_average_profile (Rho->Field, axidens);
-    make_azi_average_profile (Temperature->Field, axitemp);
     
     PhysicalTime += dt;
   }

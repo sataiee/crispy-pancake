@@ -59,6 +59,7 @@ void FillForcesArrays (sys, Rho, Energy, Vtheta, dt, SGAarray)
   for (i = 0; i < (nr+1)*ns; i++) Pot[i] = 0.0;
   /* Here we calculate and apply the axi-symmetric SG acceleration on the disc elements */
   if (CorrectVgasSG){
+    mpi_make1Dprofile(Rho->Field, axidens);
     for (i = 0; i < GLOBALNRAD; i++){
       SGAxiPot[i] = 0.0; 
       for (j = 0; j < GLOBALNRAD; j++){
