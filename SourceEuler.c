@@ -236,7 +236,7 @@ void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys, SGAarray)
   int gastimestepcfl, k, j, NbPlanets;
   int ip;
   boolean Crashed=NO;
-  extern boolean FargoPlanete, AccBoundary;
+  extern boolean FargoPlanete, AccBoundary, SmoothAtPlanet;
   extern real Runtime;
   extern real Mdisc0;
   real DiskMass, masscorenew, *Mswitch,rp, MassTaper;
@@ -248,12 +248,14 @@ void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys, SGAarray)
   Mswitch = (real *)malloc(NbPlanets*sizeof(real));
   if (EnergyEquation || ModifiedSoundSpeed) {
     ComputeSoundSpeed (Rho, Energy, sys);
+    if (SmoothAtPlanet) 
+      mpi_make1Dprofile(SoundSpeed->Field, axics);    
     /* it is necessary to update calculation of soundspeed if one uses
        alphaviscosity in FViscosity. It is not necessary in locally
        isothermal runs since sounsspeed is constant. It is computed
        here for the needs of ConditionCFL. */
   }
-  make_azi_average_profile (SoundSpeed->Field, axics);
+  
   make_azi_average_profile (Rho->Field, axidens);
   if (IsDisk == YES) {
     CommunicateBoundaries (Rho, Vrad, Vtheta, Energy, Label);
@@ -302,6 +304,7 @@ void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys, SGAarray)
         else
           sys->mass[k] = FinalPlanetMass[k]*MassTaper;
       } else {
+        mpi_make1Dprofile(SoundSpeed->Field, axics);  
         MassTaper = (PhysicalTime-PhysicalTimeInitial)/Runtime;
         masscorenew = PlanetMassAtRestart[k] + (FinalPlanetMass[k]-PlanetMassAtRestart[k])*MassTaper;
         sys->mass[k] = masscorenew + Menvelope[k];
@@ -482,9 +485,10 @@ void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys, SGAarray)
       masterprint("Disc is gone\n");
       prs_exit(0);              
     }
-    make_azi_average_profile (SoundSpeed->Field, axics);
+    if (EnergyEquation && SmoothAtPlanet)
+      mpi_make1Dprofile(SoundSpeed->Field, axics);  
     make_azi_average_profile (Rho->Field, axidens);
-    
+        
     PhysicalTime += dt;
   }
   UpdateLog (force, sys, Rho, Energy, TimeStep, PhysicalTime, dimfxy);

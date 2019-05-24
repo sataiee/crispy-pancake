@@ -266,7 +266,7 @@ real compute_smoothing (r)
    iplanet = GetGlobalIFrac (r);
    frac = iplanet-floor(iplanet);
    ii = (int)iplanet;
-   csp = axics[ii]*(1.0-frac)+axics[ii+1]*frac;
+   csp = ASPECTRATIO * (pow(GlobalRmed[ii], ASPECTRATIO-0.5)*(1.0-frac)+pow(GlobalRmed[ii], ASPECTRATIO-0.5)*frac);
    smooth = csp * r * sqrt(r) * THICKNESSSMOOTHING;
    return smooth;
 }

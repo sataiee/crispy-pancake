@@ -431,8 +431,10 @@ void Write1DFields(dens, gasvr, Temperature, number, sys)
 }
 
 
-void Write1DViscosity(number)
+void Write1DViscosity(Rho, number)
      int 	number;
+     PolarGrid 	*Rho;
+     
 {
   FILE          *dump;
   char 		name[256];
@@ -446,6 +448,8 @@ void Write1DViscosity(number)
       fprintf(stderr, "Unable to open '%s'.\n", name);
       prs_exit(1);
     }
+    mpi_make1Dprofile (Rho->Field, axidens);
+    mpi_make1Dprofile (SoundSpeed->Field, axics);
     for ( i = 0; i < GLOBALNRAD; i++ ) {
       viscosity = FViscosity (GlobalRmed[i], axics[i], axidens[i]);
       fprintf (dump,"%.18e %.18e\n",GlobalRmed[i],viscosity);
@@ -503,7 +507,7 @@ void SendOutput (index, dens, gasvr, gasvt, gasenerg, label, sys)
     if (Write_gr == YES)  WriteDiskPolar (gr, index);
     if (Write_gtheta == YES)  WriteDiskPolar (gtheta, index);
     if (Write_OneD_Fields == YES) Write1DFields (dens, gasvr, Temperature, index, sys);
-    if (Write_OneD_Viscosity == YES) Write1DViscosity(index);
+    if (Write_OneD_Viscosity == YES) Write1DViscosity(dens, index);
     MPI_Barrier (MPI_COMM_WORLD);
     if (Merge && (CPU_Number > 1)) merge (index);
   }

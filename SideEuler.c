@@ -257,6 +257,8 @@ Pair AccelFromFormula (force, Rho, x, y, smoothing, mass, sys, index, flag)
     real omega, new_r, denom, dtheta, vx, vy, gradT, Rl, lambda;
     real Tlib, TUturn, torbit;
     mpi_make1Dprofile (Temperature->Field, axitemp);
+    mpi_make1Dprofile (SoundSpeed->Field, axics);
+    mpi_make1Dprofile (Rho->Field, axidens);
     r2 = x*x+y*y;
     theta  = atan2(y,x);
     r = sqrt(r2);
@@ -290,7 +292,7 @@ Pair AccelFromFormula (force, Rho, x, y, smoothing, mass, sys, index, flag)
     }
     LinearInterpole(lnf, lnr , coeff, n1, n2);
     betaf = -coeff[0];              
-    K = sqrt(r) /(2 * PI * FViscosity(r, axics[i], axidens[i])) ;
+    K = sqrt(r) /(2 * PI * FViscosity(r, axics[ip], axidens[ip])) ;
     zeta = betaf - (ADIABATICINDEX-1)*alphaf;
 
     if (EnergyEquation){
@@ -1264,7 +1266,7 @@ real PhotoEvaporation(Vrad, Rho, dt)
   double world_mass, world_rhole;
   real l0, lx, l10, coeff;
   real a1,b1,c1,d1,e1,f1,g1;
-  real sigd, axidens[GLOBALNRAD];
+  real sigd;
   real a2,b2,c2,d2,e2,f2;
   checkmass = 0.0;
   a2 = -0.438226;

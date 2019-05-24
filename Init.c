@@ -170,9 +170,9 @@ void Initialization (gas_density, gas_v_rad, gas_v_theta, gas_energy, gas_label,
     fprintf (stderr, "done\n");
     fflush (stderr);
   }
-  make_azi_average_profile (SoundSpeed->Field, axics);
-  make_azi_average_profile (gas_density->Field, axidens);
-  make_azi_average_profile (Temperature->Field, axitemp);
+  mpi_make1Dprofile (SoundSpeed->Field, axics);
+  mpi_make1Dprofile (gas_density->Field, axidens);
+  mpi_make1Dprofile (Temperature->Field, axitemp);
   WriteDim (); 
 }
 
