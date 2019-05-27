@@ -60,10 +60,10 @@ void AccreteOntoPlanets (Rho, Vrad, Vtheta, dt, sys)
                  mastererr("Accretion rate on the planet %d is very high, it should be about %e. we set it to the maximum value 1/dt\n",k, (mass45+1./3.*mass4575)/dt);
                  MenvCount[k] +=1;
                }
-               if (dt > (0.8*pow(Rplanet,1.5)))
+               if (dt > (0.8*sqrt(Rplanet*Rplanet*Rplanet)))
                  sys->acc[k] = 1./dt;
                else 
-                 sys->acc[k] = 1./0.8/pow(Rplanet,1.5);
+                 sys->acc[k] = 1./0.8/sqrt(Rplanet*Rplanet*Rplanet);
              }
         }
       if (sys->acc[k] > 1e-10) {
@@ -264,7 +264,7 @@ real CalculateFracMass(Rho,sys,k,frac, index)
   Yplanet = sys->y[k];
   Mplanet = sys->mass[k];
   Rplanet = sqrt(Xplanet*Xplanet+Yplanet*Yplanet);
-  RRoche = pow((1.0/3.0*Mplanet),(1.0/3.0))*Rplanet; 
+  RRoche = pow(1.0/3.0*Mplanet,1.0/3.0)*Rplanet; 
   ip = ReturnIndex(Rplanet);
   /* Central mass is 1.0 */
   i_min=0;

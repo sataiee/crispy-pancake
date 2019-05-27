@@ -255,10 +255,10 @@ void RestartPlanetarySystem (timestep, sys)
       sys->vx[k] = GetfromPlanetFile (timestep, 4, k);
       sys->vy[k] = GetfromPlanetFile (timestep, 5, k);
     }
-    rp = sqrt(pow(sys->x[k],2)+pow(sys->y[k],2));
+    rp = sqrt((sys->x[k]*sys->x[k])+(sys->y[k]*sys->y[k]));
     ip = ReturnIndex(rp);
-    hplanet = axi[ip]*pow(GlobalRmed[ip],0.5);
-    Mswitch[k] = MCRIFACTOR * pow(hplanet,3);
+    hplanet = axi[ip]*sqrt(GlobalRmed[ip]);
+    Mswitch[k] = MCRIFACTOR * (hplanet*hplanet*hplanet);
     if ((FargoPlanete) && (sys->mass[k] < Mswitch[k])) {
       sys->TorqueFlag[k] = YES;
     } else {

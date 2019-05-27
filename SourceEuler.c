@@ -310,9 +310,9 @@ void AlgoGas (force, Rho, Vrad, Vtheta, Energy, Label, sys, SGAarray)
         sys->mass[k] = masscorenew + Menvelope[k];
         if (FinalPlanetMass[k] == 0.0)
           sys->mass[k] = 0.0;
-        rp = sqrt(pow(sys->x[k],2)+pow(sys->y[k],2));
+        rp = sqrt(sys->x[k]*sys->x[k]+sys->y[k]*sys->y[k]);
         ip = ReturnIndex(rp);
-        Mswitch[k] = MCRIFACTOR * pow(axics[ip]*pow(GlobalRmed[ip],0.5),3);
+        Mswitch[k] = MCRIFACTOR * pow(axics[ip]*sqrt(GlobalRmed[ip]),3);
         if ((sys->mass[k] < Mswitch[k]) && !(sys->TorqueFlag[k]))
           sys->TorqueFlag[k] = YES;
       }
@@ -978,17 +978,17 @@ void ComputeOpacities (Rho, Energy)
        /* Convert 3D volume density into g.cm^-3 */
        H = sqrt(temp * Rmed[i]*Rmed[i]*Rmed[i]);
        rho3D = dens[l]/sqrt(2*M_PI)/H;  // 3D density = sigma / sqrt(2*pi) H, 
-       phys_dens = rho3D * unit_mass * pow(unit_length, -3.);  // in kg.m^(-3)
+       phys_dens = rho3D * unit_mass / (unit_length*unit_length*unit_length);  // in kg.m^(-3)
        phys_dens *= 1e-3;  // in g.cm^(-3)
        if (tolower(*OPACITYTYPE) == 'u')
            opacity[l] =  OpacityOriginal(phys_dens, phys_temp);
        else if (tolower(*OPACITYTYPE) == 'p')
-           opacity[l] =  PlutoOpacity(phys_dens, phys_temp);       
+           opacity[l] =  lin(phys_temp, phys_dens);       
        else
            opacity[l] = opLBL94 (phys_dens, phys_temp);
        /* We convert opacities them in m^2 / kg, before translating
          the result into code units */
-       opacity[l] *= (0.1 * pow(unit_length,-2.0) * pow(unit_mass,1.0));
+       opacity[l] *= (0.1 / (unit_length*unit_length) * unit_mass);
        opacity[l] *= ZMETAL; 
      }
    }
@@ -1002,22 +1002,22 @@ real OpacityOriginal(phys_dens, phys_temp)
   /* Opacities are calculated in cm^2 / g from Bell and Lin (94)
     tables  */
        if ( phys_temp < 167.0 )
-        opac = 2e-4*pow(phys_temp,2.0);
+        opac = 2e-4*(phys_temp*phys_temp);
        else {
         if ( phys_temp < 203.0 )
           opac = 2e16*pow(phys_temp,-7.0);
         else {
           temp_transition_34 = pow(2e82*phys_dens,2./49);
           if ( phys_temp < temp_transition_34 ) 
-            opac = 0.1*pow(phys_temp,0.5);
+            opac = 0.1*sqrt(phys_temp);
           else {
             temp_transition_45 = pow(2e89*pow(phys_dens,1./3),1./27);
             if ( phys_temp < temp_transition_45 )
-              opac = 2e81*pow(phys_dens,1.0)*pow(phys_temp,-24.);
+              opac = 2e81*phys_dens*pow(phys_temp,-24.);
             else {
               temp_transition_56 = pow(1e28*pow(phys_dens,1./3),1./7);
               if ( phys_temp < temp_transition_56 )
-                     opac = 1e-8*pow(phys_dens,2./3)*pow(phys_temp,3.);
+                     opac = 1e-8*pow(phys_dens,2./3)*(phys_temp*phys_temp*phys_temp);
               else {
            temp_transition_67 = pow(1.5e56*pow(phys_dens,2./3),0.08);
                      if ( phys_temp < temp_transition_67 )
@@ -1025,7 +1025,7 @@ real OpacityOriginal(phys_dens, phys_temp)
                        else {
                          temp_transition_78 = pow(4.31e20*phys_dens,2./5);
                          if ( phys_temp < temp_transition_78 )
-                           opac = 1.5e20*pow(phys_dens,1.)*pow(phys_temp,-2.5);
+                           opac = 1.5e20*phys_dens*pow(phys_temp,-2.5);
                          else
                            opac = 0.348;
                        }
@@ -1080,8 +1080,8 @@ real opLBL94 (rho3d, temp)
       o3=bk[0]*sqrt(ts4);
       o4=bk[1]*rho3d/(ts48*ts48*ts48);
       o5=bk[2]*rho23*ts42*ts4;
-      o4an=pow(o4,4);
-      o3an=pow(o3,4);
+      o4an=o4*o4*o4*o4;
+      o3an=o3*o3*o3*o3;
       opacity = pow((o4an*o3an/(o4an+o3an))+pow(o5/(1+6.561e-5/ts48*1e2*rho23),4),0.25);
     } else {
        t2=temp*temp;
@@ -1091,71 +1091,6 @@ real opLBL94 (rho3d, temp)
        o1=ak[0]*t2;
        o2=ak[1]*temp/t8;
        o3=ak[2]*sqrt(temp);
-       o1an=o1*o1;
-       o2an=o2*o2;
-       opacity = pow(pow(o1an*o2an/(o1an+o2an),2)+pow(o3/(1+1.e22/t10),4),0.25);
-    }
-   return opacity;
-}
-
-// Opacity function as it is used in Alex's work
-real PlutoOpacity (rho3d, temp)
-   real rho3d, temp;
-{
-   real power[3] = {4.44444444e-2, 2.381e-2, 2.2667e-1};
-   real trans[3] = {1.6e3, 5.7e3, 2.28e6};
-//   coefficients for opacity laws 1, 2, and 3 in cgs units.
-   real ak[3] = {2.e-4, 2.e16, 5.e-3};
-//   coefficients for opacity laws 3, 4, 5, 6, 7, and 8 in T_4 units.
-   real bk[6] = {50.,2.e-2,2.e4,1.e4,1.5e10,0.348};
-   // =========================== 
-   
-   real ts4, rho13, rho23, ts42, ts44, ts48, t2, t4, t8, t10;
-   real o1, o2, o3, o4, o5, o6, o7, o8, o1an, o2an, o3an, o4an, o6an, o7an, o8an ;
-   real opacity;
-/* Opacities are calculated in cm^2 / g from Bell and Lin (94)
-         tables with smoothing as Lin and  Papaloizou 1985 */
-   if(temp > trans[0]*pow(rho3d,power[0])){
-      ts4=1.e-4*temp;
-      rho13=pow(rho3d,0.333333333);
-      rho23=rho13*rho13;
-      ts42=ts4*ts4;
-      ts44=ts42*ts42;
-      ts48=ts44*ts44;
-      if(temp > trans[1]*pow(rho3d,power[1])){
-          if((temp < trans[2]*pow(rho3d,power[2])) || (rho3d < 1e10)){
-             o5=bk[2]*rho23*ts42*ts4;
-             o6=bk[3]*rho13*ts44*ts44*ts42;
-             o7=bk[4]*rho3d/(ts42*sqrt(ts4));
-             o6an=o6*o6;
-             o7an=o7*o7;
-             opacity = pow(o6an*o7an/(o6an+o7an),2);
-             opacity += pow(o5/(1+pow(ts4/1.1/pow(rho3d,0.04762),10)),4);
-             opacity = pow(opacity,0.25);
-            } else {
-             o7=bk[4]*rho3d/(ts42*sqrt(ts4));
-             o8=bk[5];       
-             o7an=o7*o7;
-             o8an=o8*o8;
-             opacity = pow(o7an*o7an+o8an*o8an,0.25);
-            }
-          return opacity;
-      }
-      o3=bk[0]*ts4;
-      o4=bk[1]*rho3d/(ts48*ts48);
-      // ===================
-      o5=bk[2]*rho23*ts42*ts4;
-      o4an=pow(o4,4);
-      o3an=pow(o3,4);
-      opacity = pow((o4an*o3an/(o4an+o3an))+pow(o5/(1+6.561e-5/ts48),4),0.25);
-    } else {
-       t2=temp*temp;
-       t4=t2*t2;
-       t8=t4*t4;
-       t10=t8*t2;
-       o1=ak[0]*t2;
-       o2=ak[1]*temp/t8;
-       o3=ak[2]*temp;
        o1an=o1*o1;
        o2an=o2*o2;
        opacity = pow(pow(o1an*o2an/(o1an+o2an),2)+pow(o3/(1+1.e22/t10),4),0.25);
@@ -1323,8 +1258,8 @@ void ComputeSoundSpeed (Rho, Energy, sys)
            h = AspectRatio(Rmed[i])*pow(Rmed[i], FLARINGINDEX);
            num = h*Rmed[i] * PLANETASPECTRATIO*dp;
            den = pow(pow(h*Rmed[i],7./2) + pow(PLANETASPECTRATIO*dp,7./2),2./7);
-           omsq = G*1.0*pow(Rmed[i],-3.0);
-           omplasq = G*mp*pow(dp,-3.0);
+           omsq = G*1.0/Rmed[i]/Rmed[i]/Rmed[i];
+           omplasq = G*mp/dp/dp/dp;
            // Effective omega squared
            omeff = sqrt(omsq + omplasq);
            if (k==0) 

@@ -30,11 +30,11 @@ real FViscosity (rad, cscell, sigcell)
     /* GLOBAL_bufarray contains global, axisymmetric soundspeed
        array */
     if (!ImposedAlpha) {
-      viscosity = ALPHAVISCOSITY*cscell*cscell / sqrt(ADIABATICINDEX)*pow(rad, 1.5);
+      viscosity = ALPHAVISCOSITY*cscell*cscell / sqrt(ADIABATICINDEX)*sqrt(rad*rad*rad);
     } else {
       while (GlobalRmed[i] < rad) i++;
       /* NEW Nov 2010: imposed radial profile for alpha parameter */
-      viscosity = GLOBAL_ImposedAlpha[i]*cscell*cscell/pow(ADIABATICINDEX, 0.5)*pow(rad, 1.5);
+      viscosity = GLOBAL_ImposedAlpha[i]*cscell*cscell/sqrt(ADIABATICINDEX)*sqrt(rad*rad*rad);
     }
   }
   rmin = CAVITYRADIUS-CAVITYWIDTH*ASPECTRATIO;
@@ -61,7 +61,7 @@ real FViscosity (rad, cscell, sigcell)
       alphanew = ALPHADEAD + ALPHAACTIVE * exp(1-sigcell/SIGMAACTIVE);
    else
       alphanew = ALPHAACTIVE;
-   viscosity = alphanew * cscell*cscell / sqrt(ADIABATICINDEX)*pow(rad, 1.5);
+   viscosity = alphanew * cscell*cscell / sqrt(ADIABATICINDEX)*sqrt(rad*rad*rad);
   }
    return viscosity;
 }

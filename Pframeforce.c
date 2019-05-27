@@ -587,7 +587,7 @@ void InitGasVelocities (Vr, Vt, Rho, SGAarray)
       /* --------- */
       if (!SelfGravity) {
         omega = sqrt(G*1.0/r/r/r);
-        vt[l] = omega*r*sqrt(1.0-pow(ASPECTRATIO,2.0)*      \
+        vt[l] = omega*r*sqrt(1.0-(ASPECTRATIO*ASPECTRATIO)*      \
             pow(r,2.0*FLARINGINDEX)*      \
             (1.+SIGMASLOPE-2.0*FLARINGINDEX) );
       }

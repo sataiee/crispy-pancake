@@ -210,10 +210,11 @@ void ComputeCodeUnits ()
   unit_length = 1.49598e11*FACTORUNITLENGTH;  
   /* by default, mmw is 2.27 (Solar System composition) */
   mmw         = 2.27*FACTORMMW;              
-  unit_time = sqrt( pow(unit_length,3.) / 6.673e-11 / unit_mass );
+  unit_time = sqrt( unit_length*unit_length*unit_length / 6.673e-11 / unit_mass );
   unit_temperature = mmw * 8.0841643e-15 * unit_mass / unit_length;
   // This is Stefan-Boltzmann constant
-  sigma_SB = 5.6704e-8 * pow(unit_mass,-1) * pow(unit_time,3.) * pow(unit_temperature,4.);
+  sigma_SB = 5.6704e-8 / unit_mass * (unit_time*unit_time*unit_time) * \
+             (unit_temperature*unit_temperature*unit_temperature*unit_temperature);
   // Threshold sigma for active to dead zone transition
   SIGMAACTIVE /= (unit_mass/unit_length/unit_length/10); 
   if (AccBoundary){

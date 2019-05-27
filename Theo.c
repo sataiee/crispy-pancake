@@ -44,9 +44,9 @@ void FillSigma()
   if (AccBoundary){
     if (ViscosityAlpha){
       if (EnergyEquation) 
-      visc = ADIABATICINDEX *ALPHAVISCOSITY * pow(ASPECTRATIO,2);
+      visc = ADIABATICINDEX *ALPHAVISCOSITY * (ASPECTRATIO*ASPECTRATIO);
       else
-      visc = ALPHAVISCOSITY * pow(ASPECTRATIO,2);
+      visc = ALPHAVISCOSITY * (ASPECTRATIO*ASPECTRATIO);
     } else { 
       visc = VISCOSITY;
     }
@@ -62,9 +62,9 @@ void FillSigma()
     SigmaInf[i] = Sigma(Rinf[i]);
     if ((AccBoundary) && (DecInner)) {
       if (Rmed[i] < (GlobalRmed[0]+dsmoothin))
-        SigmaMed[i] = (SigmaMed[i]-floordens) * exp(-pow(Rmed[i]-(GlobalRmed[0]+dsmoothin),2)/2./pow(dsmoothin,2)) + floordens;
+        SigmaMed[i] = (SigmaMed[i]-floordens) * exp(-pow(Rmed[i]-(GlobalRmed[0]+dsmoothin),2)/2./(dsmoothin*dsmoothin)) + floordens;
       if (Rinf[i] < (Radii[0]+dsmoothin))
-        SigmaInf[i] = (SigmaInf[i]-floordens) * exp(-pow(Radii[i]-(Radii[0]+dsmoothin),2)/2./pow(dsmoothin,2)) + floordens;
+        SigmaInf[i] = (SigmaInf[i]-floordens) * exp(-pow(Radii[i]-(Radii[0]+dsmoothin),2)/2./(dsmoothin*dsmoothin)) + floordens;
       SigmaMed[0] = SigmaMed[1];
     }
   }
@@ -109,9 +109,9 @@ real Energy(r)
   } else {
     if ((AccBoundary) && (DecInner)){
       i = ReturnIndex(r);
-      energy0 = R/MU/(ADIABATICINDEX-1.0)*SigmaMed[i-1-IMIN]*pow(ASPECTRATIO,2.0)*pow(r,-1.0+2.0*FLARINGINDEX);
+      energy0 = R/MU/(ADIABATICINDEX-1.0)*SigmaMed[i-1-IMIN]*(ASPECTRATIO*ASPECTRATIO)*pow(r,-1.0+2.0*FLARINGINDEX);
     } else { 
-      energy0 = R/MU/(ADIABATICINDEX-1.0)*SIGMA0*pow(ASPECTRATIO,2.0)*pow(r,-SIGMASLOPE-1.0+2.0*FLARINGINDEX);
+      energy0 = R/MU/(ADIABATICINDEX-1.0)*SIGMA0*(ASPECTRATIO*ASPECTRATIO)*pow(r,-SIGMASLOPE-1.0+2.0*FLARINGINDEX);
     }
   }
   if (r < CAVITYRADIUS) cavity = 1.0/CAVITYRATIO; 
