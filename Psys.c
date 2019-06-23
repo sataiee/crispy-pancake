@@ -130,7 +130,7 @@ Force *force;
   char s[512], nm[512], test1[512], test2[512], test3[512], *s1;
   PlanetarySystem *sys;
   int i=0, j, nb, counter, nbplanets, fixedpls, Foo, ii, nr, ns, l;
-  float mass, dist, accret, eccentricity, azimuth, vr, vtheta, mtaper;
+  float mass, dist, accret, eccentricity, azimuth, vr, vtheta, mtaper, r, omega;
   real MassInside=0, *cs;
   Pair gamma;
   extern real Runtime;
@@ -218,8 +218,12 @@ Force *force;
        if (tolower(*test2) == 'n') feelothers = NO;
        if (tolower(*test3) == 'y') binary = YES;
        MassInside += PlanetMassAtRestart[i];
-       sys->x[i] = (real)dist*(1.0+eccentricity)*cos(azimuth);
-       sys->y[i] = (real)dist*(1.0+eccentricity)*sin(azimuth);
+       if (azimuth > 0.0)
+         masterprint("Note that in this version, we initialise the planet at pericentre that means curly pi = 0 and azimuth is true anomaly.\n");
+       r = (real)dist*(1-eccentricity*eccentricity)/(1+eccentricity*cos(azimuth));
+       omega = sqrt((1+MassInside)/dist/dist/dist);
+       sys->x[i] = r*cos(azimuth);
+       sys->y[i] = r*sin(azimuth);
        sys->a[i] = (real)dist;
        sys->e[i] = eccentricity;
        sys->acc[i] = accret;
@@ -230,16 +234,18 @@ Force *force;
        sys->MassTaper[i] = mtaper;
        if ((feeldis == YES) && (tolower(*CORRECTVPLANET) == 'y')) {
          if (eccentricity > 0.0)
-           mastererr("When you are using the correction for the planetary mass,\
-                      you cannot have non-zero eccentricity.\n");
+           mastererr("When you are using the correction for the planetary mass, you cannot have non-zero eccentricity.\n");
          CorrectVgasSG = YES;
          gamma = ComputeAccel (force, Rho, sys->x[i], sys->y[i], PlanetMassAtRestart[i], sys, 2);
          gamma.x -= (1.0+MassInside)/dist/dist;
          vtheta = sqrt(dist*fabs(gamma.x)); // This condition is only for circular planets
+         vr = 0;
+         vtheta = sqrt(dist*fabs(gamma.x))*(1+eccentricity*cos(azimuth))/sqrt(1-eccentricity*eccentricity);
+         vr     = sqrt(dist*fabs(gamma.x))*(eccentricity*sin(azimuth))/sqrt(1-eccentricity*eccentricity);
        } else {
-         vtheta = sqrt((1.0+MassInside)/dist)*sqrt( (1.0-eccentricity)/(1.0+eccentricity) );
+         vtheta = omega*dist*(1+eccentricity*cos(azimuth))/sqrt(1-eccentricity*eccentricity);
+         vr     = omega*dist*(eccentricity*sin(azimuth))/sqrt(1-eccentricity*eccentricity);
        }
-       vr = 0.0;
        sys->vy[i] = vr*sin(azimuth) + vtheta*cos(azimuth);
        sys->vx[i] = vr*cos(azimuth) + vtheta*sin(azimuth);
        i++;
