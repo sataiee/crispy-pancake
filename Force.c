@@ -131,7 +131,10 @@ void ComputeForce (force, Rho, x, y, mass, dimfxy, sys, index)
       l = j+i*ns;
       xc = abs[l];
       yc = ord[l];
-      cellmass = Surf[i]*dens[l];
+      if (tolower(*PABLOFORCE) == 'y')
+        cellmass = Surf[i]*(dens[l]-axidens[IMIN+i]);
+      else
+        cellmass = Surf[i]*dens[l];
       dx = xc-x;
       dy = yc-y;
       d2 = dx*dx+dy*dy;

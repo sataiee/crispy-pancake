@@ -158,4 +158,5 @@ InitVariables()
   var("DISKINNEREDGE", &DISKINNEREDGE, REAL, NO, "0.0"); //In radii smaller than this, the surface density is progressively decreased
   var("MULTIMASSTAPER", MULTIMASSTAPER, STRING, NO, "NO"); //In radii smaller than this, the surface density is progressively decreased
   var("OPACITYTYPE", OPACITYTYPE, STRING, NO, "NO"); //The type of opacity function: u for unsmoothed Lin&Bell, p for smoothed opacity as alex has in pluto, and else for smoothed opacity as Bert has
+  var("PABLOFORCE", PABLOFORCE, STRING, NO, "NO"); // if yes, the torque is calculated using the perturbed surface density
 }

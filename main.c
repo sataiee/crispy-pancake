@@ -167,6 +167,7 @@ main(argc, argv)
   /* Gas density initialization */
   InitComputeAccel ();
   InitGasDensity (gas_density);
+  make_azi_average_profile (gas_density->Field, axidens);
   floordens = 1e-8; 
   sigcrit = floordens;
   Rhole = GlobalRmed[0];

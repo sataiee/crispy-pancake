@@ -236,18 +236,12 @@ Force *force;
          if (eccentricity > 0.0)
            mastererr("When you are using the correction for the planetary mass, you cannot have non-zero eccentricity.\n");
          CorrectVgasSG = YES;
-         gamma = ComputeAccel (force, Rho, sys->x[i], sys->y[i], PlanetMassAtRestart[i], sys, 2);
+         gamma = ComputeAccel (force, Rho, dist*cos(azimuth), dist*sin(azimuth), PlanetMassAtRestart[i], sys, 2);
          gamma.x -= (1.0+MassInside)/dist/dist;
-         vtheta = sqrt(dist*fabs(gamma.x)); // This condition is only for circular planets
-         vr = 0;
-         vtheta = sqrt(dist*fabs(gamma.x))*(1+eccentricity*cos(azimuth))/sqrt(1-eccentricity*eccentricity);
-         vr     = sqrt(dist*fabs(gamma.x))*(eccentricity*sin(azimuth))/sqrt(1-eccentricity*eccentricity);
-       } else {
-         vtheta = omega*dist*(1+eccentricity*cos(azimuth))/sqrt(1-eccentricity*eccentricity);
-         vr     = omega*dist*(eccentricity*sin(azimuth))/sqrt(1-eccentricity*eccentricity);
+         omega = sqrt(fabs(gamma.x)/dist); //omega with sg
        }
-       sys->vy[i] = vr*sin(azimuth) + vtheta*cos(azimuth);
-       sys->vx[i] = vr*cos(azimuth) + vtheta*sin(azimuth);
+       sys->vy[i] = omega*dist*(eccentricity+cos(azimuth))/sqrt(1-eccentricity*eccentricity);
+       sys->vx[i] = -omega*dist*sin(azimuth)/sqrt(1-eccentricity*eccentricity);
        i++;
       }
     }
