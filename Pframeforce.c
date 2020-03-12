@@ -63,8 +63,8 @@ void FillForcesArrays (sys, Rho, Energy, Vtheta, dt, SGAarray)
     for (i = 0; i < GLOBALNRAD; i++){
       SGAxiPot[i] = 0.0; 
       for (j = 0; j < GLOBALNRAD; j++){
-        l = i * (GLOBALNRAD+1) + j;
-        SGAxiPot[i] += -4 * axidens[j] * (Radii[j+1]*SGAarray[l+1] - Radii[j] * SGAarray[l]);
+        l = i*GLOBALNRAD+j;
+        SGAxiPot[i] += -4 * axidens[j] * SGAarray[l];
       }
     }
   }
@@ -476,9 +476,9 @@ void InitGasEnergy (energ)
     FillPrescTime();
 }
 
-void InitGasVelocities (Vr, Vt, Rho, SGAarray)
+void InitGasVelocities (Vr, Vt, Rho, SGArray)
      PolarGrid *Vr, *Vt, *Rho;
-     real *SGAarray;
+     real *SGArray;
 {
   extern boolean SGZeroMode, AccBoundary;
   extern boolean SelfGravity, InitEquilibrium, MdotHartmann;
@@ -503,7 +503,7 @@ void InitGasVelocities (Vr, Vt, Rho, SGAarray)
   /* --------- */
   // Initialization of azimutal velocity with exact centrifugal balance
   /* --------- */
-  if ( CentrifugalBalance | CorrectVgasSG)
+  if ( CentrifugalBalance) //If correction for Axi-SG is applied, the CentrifugalBalance is automatically active
     mpi_make1Dprofile (pres, axipres);
   if ( CentrifugalBalance ) {
     /* vt_int \equiv rOmega = grad(P)/sigma +  \partial(phi)/\partial(r)  -  acc_sg_radial */
@@ -512,6 +512,26 @@ void InitGasVelocities (Vr, Vt, Rho, SGAarray)
       vt_int[i] = ( axipres[i] - axipres[i-1] ) /  \
         (.5*(Sigma(GlobalRmed[i])+Sigma(GlobalRmed[i-1])))/(GlobalRmed[i]-GlobalRmed[i-1]) + \
         G*(1.0/GlobalRmed[i-1]-1.0/GlobalRmed[i])/(GlobalRmed[i]-GlobalRmed[i-1]);
+    }
+    /* The case of a disc with correction of Axi-SG using Kley96*/
+    if ( CorrectVgasSG ){
+      mpi_make1Dprofile (dens, axidens);
+      for (i = 0; i < GLOBALNRAD; i++){
+        SGAxiPot[i] = 0.0; 
+        for (j = 0; j < GLOBALNRAD; j++){
+          l = i*GLOBALNRAD+j;
+          SGAxiPot[i] += -4 * axidens[j]*SGArray[l];
+        }
+      }
+      for (i = 1; i < GLOBALNRAD; i++ ){
+        /*vt_int \equiv rOmega = grad(P)/sigma +  \partial(phi)/\partial(r) 
+        * where phi is the potential from the star and the disc */
+        phii = -G*1.0/GlobalRmed[i] + SGAxiPot[i];
+        phii1 = -G*1.0/GlobalRmed[i-1] + SGAxiPot[i-1];
+        vt_int[i] = ( axipres[i] - axipres[i-1] ) / \
+                    (.5*(Sigma(GlobalRmed[i])+Sigma(GlobalRmed[i-1])))/(GlobalRmed[i]-GlobalRmed[i-1]) + \
+                    ( phii - phii1) / (GlobalRmed[i] - GlobalRmed[i-1]);
+      }
     }
     /* Case of a disk with self-gravity */
     if ( SelfGravity ) { // Better test with CL rigid!
@@ -540,34 +560,11 @@ void InitGasVelocities (Vr, Vt, Rho, SGAarray)
   // Initialization with self-gravity, without exact centrifugal balance
   if (SelfGravity && !CentrifugalBalance)
     init_azimutalvelocity_withSG (Vt);
-  /* --------- */
-  /* It turns out without changing the initial velocities, the damping boundary 
-   * behaves better. When we have this stage, a bump in the surface density profile
-   * appears close to the damping zone that implies the initial profiles are not the 
-   * equilibrium ones. For now, I remove this section 
-  if ( CorrectVgasSG ){
-    mpi_make1Dprofile (dens, axidens);
-    for (i = 0; i < GLOBALNRAD; i++){
-      SGAxiPot[i] = 0.0; 
-      for (j = 0; j < GLOBALNRAD; j++){
-        l = i * (GLOBALNRAD+1) + j;
-        SGAxiPot[i] += -4 * axidens[j] * (Radii[j+1]*SGAarray[l+1] - Radii[j] * SGAarray[l]);
-      }
-    }
-    for (i = 1; i < GLOBALNRAD; i++ ){
-       /*vt_int \equiv rOmega = grad(P)/sigma +  \partial(phi)/\partial(r) 
-       * where phi is the potential from the star and the disc */
-      /*phii = -G*1.0/GlobalRmed[i] + SGAxiPot[i];
-      phii1 = -G*1.0/GlobalRmed[i-1] + SGAxiPot[i-1];
-      vt_axisg[i] = ( axipres[i] - axipres[i-1] ) / \
-                    (.5*(Sigma(GlobalRmed[i])+Sigma(GlobalRmed[i-1])))/(GlobalRmed[i]-GlobalRmed[i-1]) + \
-                    ( phii - phii1) / (GlobalRmed[i] - GlobalRmed[i-1]);
-    }
-    //Extrapolation for the inner ring
-    vt_axisg[0] = vt_axisg[1] - (vt_axisg[2] - vt_axisg[1])/\
+    /*/Extrapolation for the inner ring
+    vt_int[0] = vt_int[1] - (vt_int[2] - vt_int[1])/\
                              (GlobalRmed[2]-GlobalRmed[1]) * (GlobalRmed[1]-GlobalRmed[0]);  
     for (i = 0; i < GLOBALNRAD; i++)
-      vt_axisg[i] = sqrt(vt_axisg[i]*Radii[i])-Radii[i]*OmegaFrame;                                                        
+      vt_int[i] = sqrt(vt_int[i]*Radii[i])-Radii[i]*OmegaFrame;                                                        
   }*/
 
   for (i = 0; i <= nr; i++) {
@@ -591,8 +588,6 @@ void InitGasVelocities (Vr, Vt, Rho, SGAarray)
             pow(r,2.0*FLARINGINDEX)*      \
             (1.+SIGMASLOPE-2.0*FLARINGINDEX) );
       }
-      /*if (CorrectVgasSG)
-        vt[l] = vt_axisg[i+IMIN];*/
       /* --------- */
       vt[l] -= OmegaFrame*r;
       if (CentrifugalBalance)

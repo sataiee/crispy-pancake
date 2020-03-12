@@ -186,7 +186,7 @@ main(argc, argv)
   sys = InitPlanetarySystem (PLANETCONFIG,NbRestart, gas_density, force);   
   //The axi-symmetric part of the SG acceleration on the disc Kley1996
   real *SGAarray;
-  SGAarray = (real *)malloc(sizeof(real) * GLOBALNRAD*(GLOBALNRAD+1)); //rows: GLOBALNRAD (rmed locations), cols: GLOBALNRAD+1 (interfaces)
+  SGAarray = (real *)malloc(sizeof(real) * GLOBALNRAD * GLOBALNRAD); //rows: GLOBALNRAD (rmed locations), cols: GLOBALNRAD+1 (interfaces)
   if (CorrectVgasSG)
     CalculateAxiSGDiskPotentialTools(SGAarray);
   if ( SelfGravity ) {

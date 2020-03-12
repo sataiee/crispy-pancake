@@ -102,64 +102,92 @@ real elle(real phi, real ak)
  * SG acceleration of the disc on its potential (Kley 1996).
  * The name of the arrays are chosen consistenly with the paper*/
 
-void CalculateAxiSGDiskPotentialTools(SGAarray)
-  real *SGAarray;
+void CalculateAxiSGDiskPotentialTools(SGArray)
+  real *SGArray;
 {
-  int i, j, k, nr, l;
+  int i, j, l ,ll;
   MPI_Request req1;
   masterprint("Calculating the tools for axi-symmetric SG acceleration , please be patient...\n");
   // local variables
-  nr = NRAD+1;
-  real *Aarray;
-  Aarray = (real *)malloc(sizeof(real) * NRAD*(GLOBALNRAD+1));
-  
-  // Calculate A array for each processor
-  CalculateAs(Aarray);
-  
+  real *SGArraylocal;
+  SGArraylocal = malloc(NRAD*GLOBALNRAD*sizeof(real));
+  // Calculate constant part of SG array for each processor
+  CalculateSGArray(SGArraylocal);
   // Make the global A arrays 
-  // (because the size of arrays are not the same for all processors, I cannot use Allgather)
   if ( CPU_Number == 1 ) {
-    for ( i = 0; i < GLOBALNRAD; i++){
-      for (j = 0; j <= GLOBALNRAD; j++){
-        l = i*(GLOBALNRAD+1) + j;
-        SGAarray[l] = Aarray[l];
+    for (i = 0; i < GLOBALNRAD; i++){
+      for (j = 0; j < GLOBALNRAD; j++){
+        l = i*GLOBALNRAD + j;
+        SGArray[l] = SGArraylocal[l];
       }
     }
-    printf("\n");
   }
+  // If we run in parallel
   if ( CPU_Number > 1 ) {
     if ( CPU_Rank == 0 ) {
       for (i = 0; i < Max_or_active; i++){
-        for (j = 0; j <= GLOBALNRAD; j++){
-          l = i*(GLOBALNRAD+1) + j;
-          SGAarray[l] = Aarray[l];
+        for (j = 0; j < GLOBALNRAD; j++){
+          l = i*GLOBALNRAD+j;
+          SGArray[l] = SGArraylocal[l];
         }
       }
-      MPI_Isend (SGAarray, (GLOBALNRAD)*(GLOBALNRAD+1), MPI_DOUBLE, CPU_Next, 0, MPI_COMM_WORLD, &req1);
+      MPI_Isend (SGArray, GLOBALNRAD, MPI_DOUBLE, CPU_Next, 0, MPI_COMM_WORLD, &req1);
       MPI_Wait (&req1, &fargostat);
     }
     if ( CPU_Rank != 0 ) {
-      MPI_Irecv (SGAarray, (GLOBALNRAD)*(GLOBALNRAD+1), MPI_DOUBLE, CPU_Prev, 0, MPI_COMM_WORLD, &req1);
+      MPI_Irecv (SGArray, GLOBALNRAD, MPI_DOUBLE, CPU_Prev, 0, MPI_COMM_WORLD, &req1);
       MPI_Wait (&req1, &fargostat);
       for (i = Zero_or_active; i < Max_or_active; i++){
-        for (j = 0; j <= GLOBALNRAD; j++){
-          l = (i+IMIN)*(GLOBALNRAD+1) + j ;
-          k = i*(GLOBALNRAD+1) + j;
-          SGAarray[l] = Aarray[k];
+        for (j = 0; j < GLOBALNRAD; j++){
+          l = i*GLOBALNRAD+j;
+          ll = (i+IMIN)*GLOBALNRAD+j;
+          SGArray[ll] = SGArraylocal[l];
         }
       }
       if ( CPU_Rank != CPU_Highest ) {
-        MPI_Isend (SGAarray, (GLOBALNRAD)*(GLOBALNRAD+1), MPI_DOUBLE, CPU_Next, 0, MPI_COMM_WORLD, &req1);
+        MPI_Isend (SGArray, GLOBALNRAD, MPI_DOUBLE, CPU_Next, 0, MPI_COMM_WORLD, &req1);
         MPI_Wait (&req1, &fargostat);
       } 
     }
     MPI_Barrier (MPI_COMM_WORLD);
-    MPI_Bcast (SGAarray, (GLOBALNRAD)*(GLOBALNRAD+1), MPI_DOUBLE, CPU_Highest, MPI_COMM_WORLD);
+    MPI_Bcast (SGArray, GLOBALNRAD, MPI_DOUBLE, CPU_Highest, MPI_COMM_WORLD);
   }
-  free(Aarray);
 }
 
-void CalculateAs(Aarray)
+void CalculateSGArray(SGArraylocal)
+  real *SGArraylocal;
+{
+  int i,j,l;
+  real k2, k1;
+  for (i = 0; i < NRAD; i++){
+    for (j = 0; j < GLOBALNRAD; j++){
+      l = i*GLOBALNRAD + j;
+      k1 = Rmed[i]/Radii[j];
+      k2 = Rmed[i]/Radii[j+1];
+      if (j < i+IMIN){ 
+        SGArraylocal[l] = Radii[j+1]*Alarge(k2) - Radii[j]*Alarge(k1);
+      } else if (j == i+IMIN){
+        SGArraylocal[l] = Radii[j+1]*Asmall(k2) - Radii[j]*Alarge(k1);
+      } else if (j > i+IMIN) {
+        SGArraylocal[l] = Radii[j+1]*Asmall(k2) - Radii[j]*Asmall(k1);
+      }
+    }
+  }
+}
+
+real Alarge(k)
+  real k;
+{
+  return k * elle(PI/2, 1./k) - (k*k-1)/k * ellf(PI/2., 1./k);
+}
+
+real Asmall(k)
+  real k;
+{
+  return elle(PI/2., k);
+}
+
+/*void CalculateAs(Aarray)
   real *Aarray;
 {
   int i,j,l;
@@ -176,33 +204,4 @@ void CalculateAs(Aarray)
       Aarray[l] = elle(PI/2., k);
     }
   }
-}
-
-/* These are the elliptical function the Sareh wrote the functions
- * one can compare the results with the ones from numerical recipe
- * that comes later 
- */
-/*real elle(phi, k)
-  real k, phi;
-{
-  int j, ns=0;
-  real E = 0;
-  while (azimuth[ns] < phi)
-    ns++;
-  for (j = 0; j < ns; j++)
-    E += sqrt(1-k*k * sin(azimuth[j])*sin(azimuth[j]));
-  return E*(azimuth[1]-azimuth[0]);
-}
-
-real ellf(phi, k)
-  real k, phi;
-{
-  int j, ns=0;
-  real F = 0;
-  while (azimuth[ns] < phi)
-    ns++;
-  for (j = 0; j < ns; j++)
-    F += 1./sqrt(1-k*k * sin(azimuth[j]*sin(azimuth[j])));
-  return F*(azimuth[1]-azimuth[0]);
-} */ 
-
+}*/

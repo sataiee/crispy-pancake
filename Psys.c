@@ -233,9 +233,8 @@ Force *force;
        sys->TorqueFlag[i] = NO;
        sys->MassTaper[i] = mtaper;
        if ((feeldis == YES) && (tolower(*CORRECTVPLANET) == 'y')) {
-         if (eccentricity > 0.0)
-           mastererr("When you are using the correction for the planetary mass, you cannot have non-zero eccentricity.\n");
          CorrectVgasSG = YES;
+         CentrifugalBalance = YES;
          gamma = ComputeAccel (force, Rho, dist*cos(azimuth), dist*sin(azimuth), PlanetMassAtRestart[i], sys, 2);
          gamma.x -= (1.0+MassInside)/dist/dist;
          omega = sqrt(fabs(gamma.x)/dist); //omega with sg
