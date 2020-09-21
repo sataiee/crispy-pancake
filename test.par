@@ -1,0 +1,62 @@
+### Gas parameters
+AspectRatio     0.05
+Sigma0          2e-4
+SigmaSlope      1.5
+FlaringIndex    0.5
+AlphaViscosity  0.0005
+ExponentialDecay  No
+
+### Star and planet parameters
+PlanetConfig    test.cfg 
+ForcedCircular  No
+ThicknessSmoothing    0.6
+Transport       FARGO
+SMOOTHINGAT     P
+#CORRECTVPLANET  Yes
+PABLOFORCE      Yes
+
+### Parameters specific to FARGO-ADSG (self-gravity, energy equation)
+SelfGravity     No
+SgThicknessSmoothing   0.6
+EnergyEquation  NO
+AdiabaticIndex  1.667
+ThermalDiffusion NO
+PHOTOEVAPORATION No
+Lx               1e31
+
+### Cavity parameters
+CavityRadius   1.0
+CavityRatio    100.0
+CavityWidth    0.06
+
+### Grid parameters
+Nrad            929
+Nsec            1024
+Rmin            0.3
+Rmax            20.0
+InnerBoundary   E
+ZeroInner       O
+DampToIni       Yes
+WKZRmin         0.375
+WKZRmax         18.0
+WKZTIN          10.0
+WKZTOUT         10.0 
+RadialSpacing   L
+Disk            Yes
+OmegaFrame      0.0
+Frame           F
+IndirectTerm    Yes
+
+### Units 
+FACTORUNITMASS   1
+FACTORUNITLENGTH  1
+
+### Outputs control parameters
+
+ReadPlanetFileAtRestart  YES 
+WriteOneDFields          No
+WRITETEMPERATURE         NO
+Ntot                     1000000
+Ninterm                  100
+DT                       0.31415926535
+OutputDir                /beegfs/work/pecat01/DiscEdge/Axsi_Sigma/Cavity/CavityEdge
