@@ -454,7 +454,7 @@ void ReadVariables(filename)
          InitEquilibrium = YES;
       } else {
          mastererr("For starting from equilibrium, you need to set MDOTINIT\n");
-         mastererr("and include EneryEquation. Please check this condition\n");
+         mastererr("and include EnergyEquation. Please check this condition\n");
          prs_exit(1);
       }
   }
@@ -468,6 +468,14 @@ void ReadVariables(filename)
     Write_OneD_Viscosity = YES;
   if ( (*WRITEFORCES == 'Y') || (*WRITEFORCES == 'y'))
     WriteForces = YES;
+
+  if ((*EDGETRANSITION == 'Y') || (*EDGETRANSITION == 'y')){
+    EdgeTransition = YES;
+    if (CAVITYRATIO > 1.0){
+      mastererr("Cavity and disc edge cannot be used together.\n");
+      prs_exit(1);
+    }
+  }
 }
 
 void PrintUsage (execname)

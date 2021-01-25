@@ -16,7 +16,7 @@ real Sigma(r)
 {
   real cavity = 1.0;
   real sigma, sigref, rdecay, rmin, rmax;
-  real sigmabg, deltz, rtarget, deltmod;
+  real sigmabg, deltz, rtarget, deltmod, fedge;
   extern boolean ExponentialDecay;
   //if (r < CAVITYRADIUS) cavity = 1.0/CAVITYRATIO; 
   rmin = CAVITYRADIUS-CAVITYWIDTH*ASPECTRATIO;
@@ -29,6 +29,11 @@ real Sigma(r)
   /* profile, if a cavity is defined. It first needs */
   /* to relax towards steady state, on a viscous time scale */
   sigma = cavity*ScalingFactor*SIGMA0*pow(r,-SIGMASLOPE);
+  /* Smooth transition as the inner edge of a disc */
+  if (EdgeTransition){
+    fedge = 1./(exp(-(r-EDGERMID)/EDGEDELTA)+1);
+    sigma *= fedge + EDGESIGMADROP*(1-fedge);
+  }
   if (ExponentialDecay) {
      rdecay = 0.5*RMAX;
      sigma *= exp(-r/rdecay);

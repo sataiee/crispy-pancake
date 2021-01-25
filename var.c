@@ -156,7 +156,14 @@ InitVariables()
   var("CORRECTVPLANET", CORRECTVPLANET, STRING, NO, "NO");
   var("WRITEFORCES", WRITEFORCES, STRING, NO, "NO"); //If yes, the force will be written for each planet in a file named forces.
   var("DISKINNEREDGE", &DISKINNEREDGE, REAL, NO, "0.0"); //In radii smaller than this, the surface density is progressively decreased
-  var("MULTIMASSTAPER", MULTIMASSTAPER, STRING, NO, "NO"); //In radii smaller than this, the surface density is progressively decreased
+  var("MULTIMASSTAPER", MULTIMASSTAPER, STRING, NO, "NO");
   var("OPACITYTYPE", OPACITYTYPE, STRING, NO, "NO"); //The type of opacity function: u for unsmoothed Lin&Bell, p for smoothed opacity as alex has in pluto, and else for smoothed opacity as Bert has
   var("PABLOFORCE", PABLOFORCE, STRING, NO, "NO"); // if yes, the torque is calculated using the perturbed surface density
+  /* Inned edge model of Willy Kley that has a smoother transtion of sigma and viscsity 
+     The Cavity model in Fargo has an abrupt transtion when connected to the background profiles. 
+     It might helps producing voctices */
+  var("EDGETRANSITION", EDGETRANSITION, STRING, NO, "NO"); // if yes, a transtion zone similar to a cavity is created but this one does not the discontinuity of the Masset's cavit model.
+  var("EDGESIGMADROP", &EDGESIGMADROP, REAL, NO, "1.0"); //This factor determines the drop inside the inner disc edge, must be used with EDGETRANSITION YES
+  var("EDGERMID", &EDGERMID, REAL, NO, "1.0"); //Middle of the transition for the  disc edge model, must be used with EDGETRANSITION YES
+  var("EDGEDELTA", &EDGEDELTA, REAL, NO, "0.0"); //Width of the transition for the  disc edge model, must be used with EDGETRANSITION YES
 }

@@ -22,7 +22,7 @@ static PolarGrid *DRR, *DRP, *DPP;
 real FViscosity (rad, cscell, sigcell)
      real rad, cscell, sigcell;
 {
-  real viscosity, rmin, rmax, scale, nudot, alphanew;
+  real viscosity, rmin, rmax, scale, nudot, alphanew, fedge;
   extern boolean ImposedAlpha;
   int i = 0;
   viscosity = VISCOSITY;
@@ -63,7 +63,12 @@ real FViscosity (rad, cscell, sigcell)
       alphanew = ALPHAACTIVE;
    viscosity = alphanew * cscell*cscell / sqrt(ADIABATICINDEX)*sqrt(rad*rad*rad);
   }
-   return viscosity;
+  /* Smooth transiton as the drop in the disc inner edge */
+  if (EdgeTransition){
+    fedge = 1./(exp(-(rad-EDGERMID)/EDGEDELTA)+1);
+    viscosity /= fedge + EDGESIGMADROP*(1-fedge);
+  }
+  return viscosity;
 }
 
 
